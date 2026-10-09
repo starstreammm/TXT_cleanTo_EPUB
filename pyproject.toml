@@ -1,0 +1,19 @@
+[project]
+name = "txt-cleanto-epub"
+version = "1.0.0"
+description = "Clean & format txt and transform to epub, with Web UI."
+readme = "README.md"
+authors = [
+    { name = "StarStreammm", email = "xxh_private@outlook.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "aiofiles>=25.1.0",
+    "fastapi>=0.141.1",
+    "natsort>=8.4.0",
+    "pillow>=12.3.0",
+    "pypandoc>=1.17",
+    "pypinyin>=0.55.0",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.54.0",
+]

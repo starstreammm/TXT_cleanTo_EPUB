@@ -1,0 +1,91 @@
+.success-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+}
+
+.success-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+
+    padding: 40px 48px;
+
+    border-radius: 24px;
+    background: white;
+
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.08);
+
+    transform: scale(0.8);
+    opacity: 0;
+}
+
+.success-card.show {
+    animation: pop 0.5s cubic-bezier(.34, 1.56, .64, 1) forwards;
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+}
+
+.circle {
+    fill: none;
+    stroke: #34c759;
+    stroke-width: 3;
+    stroke-dasharray: 157;
+    stroke-dashoffset: 157;
+    animation: circle 0.6s ease forwards;
+}
+
+.check {
+    fill: none;
+    stroke: #34c759;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+
+    animation: check 0.35s ease 0.55s forwards;
+}
+
+.title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1d1d1f;
+}
+
+.subtitle {
+    font-size: 14px;
+    color: #6e6e73;
+}
+
+@keyframes circle {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes check {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes pop {
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

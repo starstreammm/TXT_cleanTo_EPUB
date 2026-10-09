@@ -1,0 +1,79 @@
+body {
+    line-height: 1.75;
+    font-family: serif;
+}
+
+/* Main Paragraph */
+p {
+    text-indent: 2em;
+    margin: 0 0 0.5em 0;
+}
+
+/* Prevent first paragraph after heading from not being indented */
+h1+p,
+h2+p,
+h3+p {
+    text-indent: 2em;
+}
+
+/* Volume Titles */
+h2 {
+    box-sizing: border-box;
+
+    min-height: 90vh;
+    margin: 0;
+    padding: 20vh 8vw;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+
+    font-size: 2.2em;
+    font-weight: 600;
+    line-height: 1.4;
+
+    page-break-after: always;
+    break-after: page;
+}
+
+/* Chapter Titles */
+h1 {
+    font-size: 1.3em;
+    margin-top: 1.8em;
+    margin-bottom: 0.8em;
+}
+
+h3 {
+    font-size: 1.1em;
+    margin-top: 1.5em;
+}
+
+/* Word Wrap */
+p,
+li {
+    word-wrap: break-word;
+}
+
+/* Separator */
+.separator {
+    display: block;
+    /* 独占一行 */
+    border-bottom: 1px solid #81D8D0;
+    /* 横线样式 */
+    margin: 1em 0;
+    /* 上下间距 */
+    height: 0;
+    /* 本身不占高度 */
+}
+
+/* Image Styles */
+img {
+    display: block;
+    max-width: 93vw;
+    max-height: calc(93vw * 16 / 9);
+    width: auto;
+    height: auto;
+    margin: 1em auto;
+}
