@@ -50,7 +50,7 @@ jobs:
 
           cp -r build/client release/dist
           cp -r api release/api
-          cp main.py requirements.txt nginx_entrypoint.sh release/
+          cp pyproject.toml uv.lock nginx_entrypoint.sh release/
 
           tar -czf release.tar.gz release
 
