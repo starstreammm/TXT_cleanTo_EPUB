@@ -173,10 +173,12 @@ class FileBase:
         otherwise parse metadata from filename.
         """
         fields = pa.match("file", self.path.stem)
+        stat = self.path.stat()
+
         res = MetaData(
             title=fields.get("title", self.path.stem),
             creator=fields.get("creator"),
-            date=datetime.fromtimestamp(self.path.stat().st_birthtime),
+            date=datetime.fromtimestamp(getattr(stat, "st_birthtime", stat.st_mtime)),
         )
 
         # Markdown YAML front matter

@@ -7,74 +7,150 @@
   <img alt="GitHub License" src="https://img.shields.io/github/license/Xu-Xihe/TXT_cleanTo_EPUB">
   <img alt="GitHub Release" src="https://img.shields.io/github/v/release/Xu-Xihe/TXT_cleanTo_EPUB">
   <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/Xu-Xihe/TXT_cleanTo_EPUB/release.yml?label=Release">
-	<img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/Xu-Xihe/TXT_cleanTo_EPUB/docker.yml?label=Docker">
+  <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/Xu-Xihe/TXT_cleanTo_EPUB/docker.yml?label=Docker">
   <br />
   <img alt="GitHub forks" src="https://img.shields.io/github/forks/Xu-Xihe/TXT_cleanTo_EPUB">
-	<img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Xu-Xihe/TXT_cleanTo_EPUB">
-	<img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues/Xu-Xihe/TXT_cleanTo_EPUB">
- </div>
+  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/Xu-Xihe/TXT_cleanTo_EPUB">
+  <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues/Xu-Xihe/TXT_cleanTo_EPUB">
+</div>
 
-## 功能特色
+TXT CleanTo EPUB is a self-hosted web application for preparing TXT or Markdown novels and exporting EPUB 3 books. Choose a folder, review the detected files, edit content and metadata, then convert the entire queue from the browser.
 
-- Web UI 操作简便直观。
-- 滚动加载机制，即使面对大文件也能轻松运行。
-- 比正则更简单的匹配机制，并同时支持数字与中文数字。
-- 提供多种匹配与编辑模式，自动清洗与自定义修改清晰简洁。
+## Features
 
-## 安装
+- Supports `.txt` and `.md` input files. TXT files may be UTF-8, UTF-8 with BOM, or GB18030 encoded.
+- Extracts titles and authors from filenames, and reads YAML front matter from Markdown files.
+- Lets you edit source text, preview TXT cleanup results, change EPUB metadata, and choose a cover for each file before conversion.
+- Detects chapter and volume headings with simple, editable patterns; Arabic and Chinese numerals are supported.
+- Removes matching advertisement text, collapses repeated blank lines, and converts divider lines to styled separators.
+- Preserves local Markdown images, including image paths with spaces, and leaves remote/data URLs untouched.
+- Generates EPUB 3 files with Pandoc, embedded styling, a cover image, and optional table of contents.
+- Can keep generated Markdown, split output by chapter and/or volume, add Calibre series metadata, and optionally delete the original input after a successful conversion.
+- Shows per-file preparation, processing, success, and error states in the browser.
 
-### Docker 安装（推荐）
+## Workflow
+
+1. Select the folder containing the `.txt` and/or `.md` files to process.
+2. Optionally adjust filename rules, then review each file in the editor. Update text, metadata, cover, or chapter/advertisement/volume rules as needed.
+3. Choose an output folder and conversion options.
+4. Start the conversion and monitor each file’s progress. EPUB files are written into a subfolder named after the book (and author, when available).
+
+> [!WARNING]
+> **Delete Original File** is enabled by default. Disable it before starting if you want to retain the source files.
+
+## Installation and Running
+
+### Docker (Recommended)
+
+Mount the folder that contains the books at a path visible inside the container, and use that container path (for example, `/books`) in the web UI. The named `data` volume retains matching-rule settings between container recreations.
 
 ```bash
-docker run -d -p 8888:80 -v /home/path/to/txt:/app/txt starstreammm/txt_cleanto_epub:latest
+docker run -d --name txt-cleanto-epub \
+  -p 8888:80 \
+  -v /absolute/path/to/books:/books \
+  -v txt-cleanto-epub-data:/app/data \
+  starstreammm/txt_cleanto_epub:latest
 ```
 
-也可以选择从Github镜像安装：
+The GitHub Container Registry image is also available:
 
 ```bash
-docker run -d -p 8888:80 -v /home/path/to/txt:/app/txt ghcr.io/xu-xihe/txt_cleanto_epub:latest
+docker run -d --name txt-cleanto-epub \
+  -p 8888:80 \
+  -v /absolute/path/to/books:/books \
+  -v txt-cleanto-epub-data:/app/data \
+  ghcr.io/xu-xihe/txt_cleanto_epub:latest
 ```
 
-### 本地安装
+Open [http://127.0.0.1:8888](http://127.0.0.1:8888), then select `/books` as the work path. Any output path must likewise be under a mounted writable directory.
 
-> [!CAUTION]
->
-> 后端api依靠nginx转发路径/api/，如有需要请更改nginx配置。
-
-1. 下载[最新release包](https://github.com/Xu-Xihe/TXT_cleanTo_EPUB/releases/latest/download/release.tar.gz)
-2. 首先确保正确安装 `nginx` 并导入项目根目录下 `nginx.conf` 配置文件：
-
-   ```bash
-   mkdir /etc/nginx/conf.d/
-   mv nginx.conf /etc/nginx/conf.d/
-   nginx -s reload
-   
-   # 检查配置是否生效
-   nginx -T
-   ```
-3. 复制前端文件至 `nginx` 指定目录：
-
-   ```bash
-   mv dist/* /usr/share/nginx/html
-   ```
-4. 启动python后端服务器：
-
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port 38888
-   ```
-5. 访问 `http://127.0.0.1:80`
-
-### 开发模式
+To build the image locally, first create the frontend build artifacts, then build the image:
 
 ```bash
-git clone https://github.com/Xu-Xihe/TXT_cleanTo_EPUB.git
-cd TXT_cleanTo_EPUB
-npm i
-pip install -r requirements.txt
+npm install
+npm run build
+docker build -t txt-cleanto-epub .
+```
+
+### Local Development
+
+Requirements:
+
+- Node.js and npm
+- Python 3.10 or later
+- [uv](https://docs.astral.sh/uv/)
+- Pandoc (required for EPUB generation)
+
+Install the frontend and Python dependencies:
+
+```bash
+npm install
+uv sync
+```
+
+Run the frontend and API in separate terminals:
+
+```bash
+# Terminal 1 — frontend at http://127.0.0.1:8887
 npm run dev
-python3 start.py
 ```
 
-## 项目架构
+```bash
+# Terminal 2 — API at http://127.0.0.1:38888
+cd api
+../.venv/bin/python main.py
+```
 
-<img src="./image/structure.svg" alt="structure" width="288" />
+The Vite development server proxies `/api` requests to the API automatically. Conversion rules and temporary working files are stored in `data/`; temporary files are removed when the API stops.
+
+## Matching Rules
+
+Rules are literal patterns with placeholders, so regular expressions are not required. Rules can be enabled, reordered, edited, reset, or removed in the UI. The longest enabled rule is tested first.
+
+| Rule type     | Purpose                              | Supported placeholders                       |
+| ------------- | ------------------------------------ | -------------------------------------------- |
+| File          | Derive book metadata from a filename | `{title}`, `{creator}`                   |
+| Chapter       | Recognize TXT chapter headings       | `{title}`, `{chapter}`, `{extchapter}` |
+| Volume        | Recognize TXT volume headings        | `{title}`, `{chapter}`                   |
+| Advertisement | Remove matching text from TXT lines  | `{s}`                                      |
+
+`{chapter}` and `{extchapter}` accept Arabic numerals as well as Chinese numerals. For example, `第{chapter}章 {title}` recognizes `第12章 开始` and `第十二章 开始`.
+
+## Output Options
+
+| Option                | Result                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| Save Text Files       | Keeps the generated Markdown alongside the EPUB output.                                        |
+| Delete Original File  | Deletes each original source file only after its conversion succeeds.                          |
+| Separated by Volumes  | Produces one Markdown/EPUB pair per recognized volume, in `v01`, `v02`, and so on.         |
+| Separated by Chapters | Produces one Markdown/EPUB pair per recognized chapter and includes an EPUB table of contents. |
+
+When both separation options are enabled, chapters are placed inside their corresponding volume folders. A configured series index is written into generated EPUB metadata for separated output.
+
+## Markdown and metadata
+
+Markdown input may start with YAML front matter. Supported metadata includes `title`, `creator`, `contributor`, `publisher`, `date`, `language`, `description`, and `source`. Multiple creators, contributors, and publishers are written as separate EPUB metadata entries; enter multiple values in the UI separated with semicolons.
+
+For Markdown images, use normal Markdown syntax such as `![Cover](images/cover.jpg)`. Relative paths are resolved from the source file’s directory. You can set a dedicated cover path in the metadata editor; otherwise, the application generates a cover.
+
+## Architecture
+
+```text
+React Router + Material UI frontend
+        │
+        ├── folder selection, rule configuration, editor, metadata, progress UI
+        │
+FastAPI API (/api)
+        │
+        ├── file queue and temporary UTF-8 copies
+        ├── pattern parsing and TXT cleanup
+        └── asynchronous Pandoc EPUB workers
+                │
+                └── Markdown + EPUB 3 output
+```
+
+The production image runs FastAPI and Nginx under Supervisor. Nginx serves the frontend and proxies `/api/` to the API; HTTPS is enabled automatically when `cert.crt` and `cert.key` are supplied under `/etc/nginx/certs/`.
+
+## License
+
+See [LICENSE](./LICENSE).
