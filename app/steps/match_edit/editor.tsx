@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import { useColorScheme } from "@mui/material/styles";
 
-import { Editor } from "@monaco-editor/react";
+import { Editor, type Monaco } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
 
 import {
@@ -23,8 +23,8 @@ import {
 } from "react";
 
 import MarkdownPreview from "./preview";
-import Replacements from "./replacements";
-import { pushMsg } from "~/components/error_popout";
+import Replacements, { type Replacement } from "./replacements";
+import { pushError, pushMsg } from "~/components/error_popout";
 import type { FileInfo } from "~/hooks/models";
 import { useLocalStorage } from "~/hooks/storage";
 import { EditorToolBar } from "./toolbar";
@@ -52,6 +52,7 @@ export default function TextEditor({
     const { mode } = useColorScheme();
     const preferIsDark = useMediaQuery("(prefers-color-scheme: dark)");
     const OrgEditorRef = useRef<editor.IStandaloneCodeEditor>(null);
+    const monacoRef = useRef<Monaco | null>(null);
     const disposeImagePreviewRef = useRef<() => void>(null);
     const savedContentRef = useRef("");
     const contentRequestRef = useRef(0);
@@ -224,34 +225,67 @@ export default function TextEditor({
 
     useEffect(() => () => disposeImagePreviewRef.current?.(), []);
 
-    const runReplacement = (original: string, replacement: string) => {
+    const applyReplacement = async (
+        pair: Replacement,
+        action: "all" | "show",
+    ) => {
         const sourceEditor = OrgEditorRef.current;
+        const monaco = monacoRef.current;
         const model = sourceEditor?.getModel();
-        if (!sourceEditor || !model || fetching.current) return;
-        const matches = model.findMatches(
-            original,
-            false,
-            false,
-            true,
-            null,
-            false,
-            Number.MAX_SAFE_INTEGER,
+        if (!sourceEditor || !monaco || !model || fetching.current) return;
+        const findOptions = sourceEditor.getOption(
+            monaco.editor.EditorOption.find,
         );
-        if (!matches.length) {
-            pushMsg("No matching text found", "info");
-            return;
+        try {
+            if (!pair.original)
+                throw new Error("Original text cannot be empty.");
+            if (pair.isRegex) new RegExp(pair.original, "mu");
+            const findAction = sourceEditor.getAction(
+                "editor.actions.findWithArgs",
+            );
+            if (!findAction)
+                throw new Error("Monaco’s replace action is unavailable.");
+
+            // Clear any existing selection scope and prevent the selection from replacing the saved query.
+            sourceEditor.trigger("saved-replacement", "closeFindWidget", null);
+            sourceEditor.updateOptions({
+                find: {
+                    seedSearchStringFromSelection: "never",
+                    autoFindInSelection: "never",
+                },
+            });
+            await findAction.run({
+                searchString: pair.original,
+                replaceString: pair.replacement,
+                isCaseSensitive: pair.matchCase ?? true,
+                matchWholeWord: pair.wholeWord ?? false,
+                isRegex: pair.isRegex ?? false,
+                preserveCase: false,
+                findInSelection: false,
+            });
+            if (action === "all" && sourceEditor.getModel() === model) {
+                const version = model.getAlternativeVersionId();
+                sourceEditor.trigger(
+                    "saved-replacement",
+                    "editor.action.replaceAll",
+                    null,
+                );
+                sourceEditor.trigger(
+                    "saved-replacement",
+                    "closeFindWidget",
+                    null,
+                );
+                if (model.getAlternativeVersionId() !== version) {
+                    pushMsg("Replaced all matches", "success");
+                } else {
+                    pushMsg("No text changed", "info");
+                }
+            }
+        } catch (error) {
+            pushError(error, "Saved replacement");
+        } finally {
+            sourceEditor.updateOptions({ find: findOptions });
         }
-        sourceEditor.pushUndoStop();
-        sourceEditor.executeEdits(
-            "saved-replacement",
-            matches.map((match) => ({
-                range: match.range,
-                text: replacement,
-            })),
-        );
-        sourceEditor.pushUndoStop();
-        sourceEditor.focus();
-        pushMsg(`Replaced ${matches.length} matches`, "success");
     };
 
     if (file === null)
@@ -428,6 +462,7 @@ export default function TextEditor({
                             }}
                             onMount={(editor, monaco) => {
                                 OrgEditorRef.current = editor;
+                                monacoRef.current = monaco;
                                 setSourceEditor(editor);
 
                                 // Key binding for save
@@ -466,7 +501,7 @@ export default function TextEditor({
                     </Box>
                     {showReplacements && (
                         <Replacements
-                            onRun={runReplacement}
+                            onApply={applyReplacement}
                             onClose={() => setShowReplacements(false)}
                         />
                     )}
