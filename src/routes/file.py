@@ -2,8 +2,8 @@ from fastapi import APIRouter, Response, Query, Body
 from fastapi.responses import StreamingResponse, FileResponse
 from pathlib import Path
 
-from models import FileInfo, MetaData
-from src.queue import FilesQueue
+from models import FileInfo, MetaData, TEXT_TYPE
+from core.queue import FilesQueue
 
 file_router = APIRouter(prefix="/file", tags=["File"])
 
@@ -19,18 +19,27 @@ async def get_work_dir():
 @file_router.post("/work_dir", response_model=list[FileInfo])
 async def set_work_dir(path: Path = Query(..., description="Path to open")):
     """
-    Open a directory and return a list of files and directories.
+    Open a directory or supported text file and return the processing candidates.
     """
     FilesQueue.set_work_dir(path)
     return [file.get_file_info() for file in FilesQueue.files]
 
 
 @file_router.get("/list", response_model=list[FileInfo])
-async def list_files():
+async def list_files(selected_only: bool = True):
     """
-    List all files in the current working directory.
+    List selected text files, or all candidates when selected_only is false.
     """
-    return [file.get_file_info() for file in FilesQueue.files]
+    return [
+        file.get_file_info()
+        for file in FilesQueue.files
+        if not selected_only or file.uid in FilesQueue.selected_uids
+    ]
+
+
+@file_router.post("/selection", response_model=None)
+async def select_files(uids: list[str]):
+    FilesQueue.select_files(uids)
 
 
 @file_router.get("/open", response_class=StreamingResponse)
@@ -62,12 +71,13 @@ async def update_file_metadata(
 
 @file_router.post("/preview", response_model=str)
 async def preview_file(
-    text: str = Body(embed=True, description="Text content to preview")
+    text: str = Body(embed=True, description="Text content to preview"),
+    type: TEXT_TYPE = Query(description="Type of the text content"),
 ):
     """
     Render a preview of a content.
     """
-    return FilesQueue.preview(text)
+    return FilesQueue.preview(text, type)
 
 
 @file_router.get("/image", response_class=FileResponse)

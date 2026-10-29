@@ -10,90 +10,95 @@ import {
     DialogContent,
     DialogActions,
 } from "@mui/material";
-import CreateNewFolderRoundedIcon from '@mui/icons-material/CreateNewFolderRounded';
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import CreateNewFolderRoundedIcon from "@mui/icons-material/CreateNewFolderRounded";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "~/hooks/api";
+import type { PathEntry } from "~/hooks/models";
 import { pushError } from "~/components/error_popout";
-
 
 export default function PathSelector({
     label,
     onClose,
-    onEnter = () => { },
+    onEnter = () => {},
     value,
-    addDir
+    addDir,
+    includeFiles = false,
 }: {
     label?: string;
     onClose: (path: string) => void;
     onEnter?: (path: string) => void;
     value?: string | null;
-    addDir?: boolean
+    addDir?: boolean;
+    includeFiles?: boolean;
 }) {
     const [path, setPath] = useState("/");
-    const [dirList, setDirList] = useState<string[]>([]);
+    const [dirList, setDirList] = useState<PathEntry[]>([]);
     const [newFolder, setNewFolder] = useState<string | null>(null);
-
 
     const backPath = (path: string) => {
         if (path === "/") return "/";
         if (path.endsWith("/")) path = path.slice(0, -1);
-        return path.split('/').slice(0, -1).join('/') + "/" || "/";
+        return path.split("/").slice(0, -1).join("/") + "/" || "/";
     };
 
     const standardizePath = (path: string) => {
-        if (path.startsWith('"') && path.endsWith('"')) path = path.slice(1, -1);
-        if (path.startsWith("'") && path.endsWith("'")) path = path.slice(1, -1);
+        if (path.startsWith('"') && path.endsWith('"'))
+            path = path.slice(1, -1);
+        if (path.startsWith("'") && path.endsWith("'"))
+            path = path.slice(1, -1);
         if (path === "") return "/";
         path = path.replaceAll("//", "/");
         if (!path.startsWith("/")) path = "/" + path;
+        if (includeFiles && /\.(txt|md)$/i.test(path)) return path;
         if (!path.endsWith("/")) {
             return path + "/";
-        }
-        else {
+        } else {
             return path;
         }
     };
 
     const fetch = (path: string) => {
-        api.get("/api/path/ls", { searchParams: { path } }).json<string[]>()
+        api.get("/api/path/ls", {
+            searchParams: { path, include_files: includeFiles },
+        })
+            .json<PathEntry[]>()
             .then((res) => setDirList(res))
             .catch((e) => pushError(e, `Fetch file list ${path}`));
-    }
+    };
 
     const makeDir = () => {
         api.get(`/api/path/mkdir?path=${path}${newFolder}`)
             .then(() => {
-                setPath(prev => prev + newFolder + "/");
+                setPath((prev) => prev + newFolder + "/");
                 setNewFolder(null);
             })
-            .catch(error => pushError(error, "Create new folder"))
+            .catch((error) => pushError(error, "Create new folder"));
     };
 
     const close_check = async (is_enter: boolean) => {
         is_enter ? onEnter(path) : onClose(path);
-    }
+    };
 
     const fetch_options = useMemo(() => {
         const prepath = path.slice(0, path.lastIndexOf("/") + 1);
         const prefix = path.slice(path.lastIndexOf("/") + 1);
 
         return dirList
-            .filter((dir) => dir.startsWith(prefix))
-            .map((dir) => prepath + dir + "/")
+            .filter((entry) => entry.name.startsWith(prefix))
+            .map((entry) => prepath + entry.name + (entry.is_file ? "" : "/"));
     }, [path, dirList]);
 
     useEffect(() => {
-        if (value === path)
-            return;
+        if (value === path) return;
         else if ((value ?? "") === "")
-            api.get("/api/path/home").json<string>()
+            api.get("/api/path/home")
+                .json<string>()
                 .then((res) => setPath(res.endsWith("/") ? res : res + "/"))
                 .catch((err) => pushError(err, "Fetch home directory"));
-        else
-            setPath(standardizePath(value ?? "/"));
+        else setPath(standardizePath(value ?? "/"));
     }, [, value]);
 
     return (
@@ -125,11 +130,20 @@ export default function PathSelector({
                         variant="outlined"
                         value={newFolder}
                         sx={{ mt: 1, width: "100%" }}
-                        onChange={(e) => setNewFolder(e.target.value.replaceAll("/", "").replaceAll("&", "_"))}
+                        onChange={(e) =>
+                            setNewFolder(
+                                e.target.value
+                                    .replaceAll("/", "")
+                                    .replaceAll("&", "_"),
+                            )
+                        }
                     />
                 </DialogContent>
                 <DialogActions sx={{ pb: 3, pr: 3, gap: 1 }}>
-                    <Button onClick={() => setNewFolder(null)} variant="outlined">
+                    <Button
+                        onClick={() => setNewFolder(null)}
+                        variant="outlined"
+                    >
                         Cancel
                     </Button>
                     <Button
@@ -144,12 +158,14 @@ export default function PathSelector({
                     </Button>
                 </DialogActions>
             </Dialog>
-            <Box sx={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                gap: 1,
-            }}>
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    gap: 1,
+                }}
+            >
                 <IconButton
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
@@ -164,7 +180,10 @@ export default function PathSelector({
                     disableCloseOnSelect
                     disablePortal
                     value={path}
-                    onOpen={() => fetch(path)}
+                    onBlur={() => onClose(path)}
+                    onOpen={() =>
+                        fetch(path.slice(0, path.lastIndexOf("/") + 1))
+                    }
                     onClose={() => close_check(false)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -178,33 +197,43 @@ export default function PathSelector({
                     onInputChange={async (_, value, reason) => {
                         if (reason === "selectOption") {
                             setPath(value);
-                            fetch(value);
-                        }
-                        else {
-
-                            if (value.startsWith(path.slice(0, path.lastIndexOf("/") + 1))) {
+                            if (value.endsWith("/")) fetch(value);
+                        } else {
+                            if (
+                                value.startsWith(
+                                    path.slice(0, path.lastIndexOf("/") + 1),
+                                )
+                            ) {
                                 setPath(value);
-                                fetch(value.slice(0, value.lastIndexOf("/") + 1));
-                            }
-                            else {
+                                fetch(
+                                    value.slice(0, value.lastIndexOf("/") + 1),
+                                );
+                            } else {
                                 const newPath = await standardizePath(value);
                                 setPath(newPath);
-                                fetch(newPath);
+                                fetch(
+                                    newPath.slice(
+                                        0,
+                                        newPath.lastIndexOf("/") + 1,
+                                    ),
+                                );
                             }
                         }
                     }}
-                    renderInput={(params) => <TextField
-                        {...params}
-                        multiline
-                        label={label}
-                        variant="outlined"
-                    />}
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            multiline
+                            label={label}
+                            variant="outlined"
+                        />
+                    )}
                 />
-                {addDir &&
+                {addDir && (
                     <IconButton onClick={() => setNewFolder("")}>
                         <CreateNewFolderRoundedIcon color="primary" />
                     </IconButton>
-                }
+                )}
             </Box>
         </>
     );

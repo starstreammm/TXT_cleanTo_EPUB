@@ -124,19 +124,6 @@ export default function MetaDataDialog({ defaultValue, onClose }: {
                         value={metaData.source}
                         onChange={(newValue) => setMetaData({ ...metaData, source: newValue })}
                     />
-                    <MetaDataField
-                        title="Series Index"
-                        value={(metaData.series_index ?? -1).toString()}
-                        onChange={(newValue) => setMetaData({
-                            ...metaData,
-                            series_index: newValue.trim() === ""
-                                ? null
-                                : parseInt(newValue) === -1
-                                    ? null
-                                    : parseInt(newValue),
-                        })}
-                        props={{ type: "number" }}
-                    />
                 </Box>
             </DialogContent>
             <DialogActions>

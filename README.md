@@ -14,7 +14,7 @@
   <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues/Xu-Xihe/TXT_cleanTo_EPUB">
 </div>
 
-TXT CleanTo EPUB is a self-hosted web application for preparing TXT or Markdown novels and exporting EPUB 3 books. Choose a folder, review the detected files, edit content and metadata, then convert the entire queue from the browser.
+TXT CleanTo EPUB is a self-hosted web application for preparing TXT or Markdown novels and exporting EPUB 3 books. Choose a folder, review the detected files, edit content and metadata, then convert selected files from the browser.
 
 ## Features
 
@@ -25,13 +25,15 @@ TXT CleanTo EPUB is a self-hosted web application for preparing TXT or Markdown 
 - Removes matching advertisement text, collapses repeated blank lines, and converts divider lines to styled separators.
 - Preserves local Markdown images, including image paths with spaces, and leaves remote/data URLs untouched.
 - Generates EPUB 3 files with Pandoc, embedded styling, a cover image, and optional table of contents.
-- Can keep generated Markdown, split output by chapter and/or volume, add Calibre series metadata, and optionally delete the original input after a successful conversion.
-- Shows per-file preparation, processing, success, and error states in the browser.
+- Writes one EPUB per input file, optionally keeps generated Markdown, and can delete the original input after a successful conversion.
+- Shows per-file preparation, processing, success, and error states, with a retry action for failed files only.
+- Stores reusable original/replacement text pairs locally, with edit, delete, and run actions in the source editor.
+- Renders formatted Markdown with react-markdown and the same `public/epub.css` used by EPUB exports, while retaining the app theme.
 
 ## Workflow
 
-1. Select the folder containing the `.txt` and/or `.md` files to process.
-2. Optionally adjust filename rules, then review each file in the editor. Update text, metadata, cover, or chapter/advertisement/volume rules as needed.
+1. Select a folder or a single `.txt`/`.md` file, preview the detected files, and choose which files to process.
+2. Optionally adjust filename rules, then review each file in the editor. A single selected file opens without the file sidebar. Update text, metadata, cover, or chapter/advertisement/volume rules as needed.
 3. Choose an output folder and conversion options.
 4. Start the conversion and monitor each file’s progress. EPUB files are written into a subfolder named after the book (and author, when available).
 
@@ -97,7 +99,7 @@ npm run dev
 
 ```bash
 # Terminal 2 — API at http://127.0.0.1:38888
-cd api
+cd src
 ../.venv/bin/python main.py
 ```
 
@@ -111,27 +113,32 @@ Rules are literal patterns with placeholders, so regular expressions are not req
 | ------------- | ------------------------------------ | -------------------------------------------- |
 | File          | Derive book metadata from a filename | `{title}`, `{creator}`                   |
 | Chapter       | Recognize TXT chapter headings       | `{title}`, `{chapter}`, `{extchapter}` |
-| Volume        | Recognize TXT volume headings        | `{title}`, `{chapter}`                   |
+| Volume        | Recognize TXT volume headings        | `{title}`, `{volume}`                    |
 | Advertisement | Remove matching text from TXT lines  | `{s}`                                      |
 
-`{chapter}` and `{extchapter}` accept Arabic numerals as well as Chinese numerals. For example, `第{chapter}章 {title}` recognizes `第12章 开始` and `第十二章 开始`.
+`{volume}`, `{chapter}`, and `{extchapter}` accept Arabic numerals as well as Chinese numerals. For example, `第{chapter}章 {title}` recognizes `第12章 开始` and `第十二章 开始`.
+
+Volume rules such as `第{volume}卷 {title}` produce `#` headings. Chapter rules produce `##` headings. Existing volume rules using `{chapter}` remain supported.
 
 ## Output Options
 
 | Option                | Result                                                                                         |
 | --------------------- | ---------------------------------------------------------------------------------------------- |
 | Save Text Files       | Keeps the generated Markdown alongside the EPUB output.                                        |
+| Move Images           | Moves the cover and local inline images beside the output as `cover.ext`, `P1.ext`, `P2.ext`, etc. Disabled by default. |
 | Delete Original File  | Deletes each original source file only after its conversion succeeds.                          |
-| Separated by Volumes  | Produces one Markdown/EPUB pair per recognized volume, in `v01`, `v02`, and so on.         |
-| Separated by Chapters | Produces one Markdown/EPUB pair per recognized chapter and includes an EPUB table of contents. |
 
-When both separation options are enabled, chapters are placed inside their corresponding volume folders. A configured series index is written into generated EPUB metadata for separated output.
+Each selected source produces one book; volume and chapter headings define its table of contents. After a batch finishes, **Retry Failed Files** retries only failed files with the same configuration and preserves successful results.
 
 ## Markdown and metadata
 
-Markdown input may start with YAML front matter. Supported metadata includes `title`, `creator`, `contributor`, `publisher`, `date`, `language`, `description`, and `source`. Multiple creators, contributors, and publishers are written as separate EPUB metadata entries; enter multiple values in the UI separated with semicolons.
+Markdown input may start with YAML front matter. Supported metadata includes `title`, `creator`, `contributor`, `publisher`, `date`, `language`, `description`, `source`, and `cover` (also accepted as `cover-image`). Cover paths are resolved relative to the Markdown file when opened. Multiple creators, contributors, and publishers are written as separate EPUB metadata entries; enter multiple values in the UI separated with semicolons.
 
 For Markdown images, use normal Markdown syntax such as `![Cover](images/cover.jpg)`. Relative paths are resolved from the source file’s directory. You can set a dedicated cover path in the metadata editor; otherwise, the application generates a cover.
+
+With **Move Images** enabled, local inline images and the cover (including an automatically generated cover) are placed beside each output Markdown/EPUB pair, preserving their formats. Markdown uses links such as `./P1.jpg` and YAML `cover: ./cover.jpg`. Repeated references share one image per output folder. Existing inline filenames are skipped; a conflicting cover reports an error instead of overwriting it. Source images are removed only after every conversion in the batch succeeds. With the switch off, images remain at their original locations and Markdown uses relative paths back to them. Remote and data URLs remain unchanged.
+
+Markdown input retains its heading levels, lists, whitespace, and fenced code without applying TXT matching or advertisement removal.
 
 ## Architecture
 

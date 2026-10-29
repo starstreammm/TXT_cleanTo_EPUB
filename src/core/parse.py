@@ -3,7 +3,7 @@ import json
 from typing import get_args
 import aiofiles
 import re
-from models import Pattern, DATA_PATH, PatternType
+from models import TEXT_TYPE, Pattern, DATA_PATH, PatternType
 
 PATTERN_PATH = DATA_PATH / "pattern.json"
 PATTERN_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -27,15 +27,17 @@ DEFAULT_PATTERN: dict[PatternType, list[Pattern]] = {
         Pattern(enable=True, alias="基本", pattern="广告{s}"),
     ],
     "volume": [
-        Pattern(enable=True, alias="第几卷 标题", pattern="第{chapter}卷 {title}"),
-        Pattern(enable=True, alias="第几卷_标题", pattern="第{chapter}卷_{title}"),
-        Pattern(enable=True, alias="卷外 标题", pattern="卷外{chapter} {title}"),
-        Pattern(enable=True, alias="卷外_标题", pattern="卷外{chapter}_{title}"),
+        Pattern(enable=True, alias="第几卷", pattern="第{volume}卷"),
+        Pattern(enable=True, alias="第几卷 标题", pattern="第{volume}卷 {title}"),
+        Pattern(enable=True, alias="第几卷_标题", pattern="第{volume}卷_{title}"),
+        Pattern(enable=True, alias="卷外 标题", pattern="卷外{volume} {title}"),
+        Pattern(enable=True, alias="卷外_标题", pattern="卷外{volume}_{title}"),
     ],
 }
 TOKEN_MAP = {
     r"\{title\}": r"(?P<title>\S.*)",
     r"\{creator\}": r"(?P<creator>[A-Za-z0-9\u4e00-\u9fff]+)",
+    r"\{volume\}": r"(?P<volume>[零一二三四五六七八九十百千万]+|\d+)",
     r"\{chapter\}": r"(?P<chapter>[零一二三四五六七八九十百千万]+|\d+)",
     r"\{extchapter\}": r"(?P<extchapter>[零一二三四五六七八九十百千万]+|\d+)",
     r"\{n\}": r"(\d+)",
@@ -45,7 +47,7 @@ TOKEN_MAP = {
 
 
 class ParseBase:
-    _pattern: dict[PatternType, list[Pattern]] = DEFAULT_PATTERN
+    _pattern: dict[PatternType, list[Pattern]] = copy.deepcopy(DEFAULT_PATTERN)
     _compiled_pattern: dict[PatternType, list[re.Pattern]] = {
         key: [] for key in get_args(PatternType)
     }
@@ -55,7 +57,7 @@ class ParseBase:
         if PATTERN_PATH.is_file():
             async with aiofiles.open(PATTERN_PATH, "r") as f:
                 content = await f.read()
-                cls._pattern = {
+                cls._pattern = copy.deepcopy(DEFAULT_PATTERN) | {
                     key: [Pattern.model_validate(p) for p in patterns]
                     for key, patterns in json.loads(content).items()
                 }
@@ -126,6 +128,11 @@ class ParseBase:
                     except ValueError:
                         result["extchapter"] = cls._chinese_to_int(result["extchapter"])
 
+                if result.get("volume"):
+                    value = result["volume"]
+                    result["volume"] = (
+                        int(value) if value.isdigit() else cls._chinese_to_int(value)
+                    )
                 return result
 
         return {}
@@ -134,26 +141,32 @@ class ParseBase:
     def match_line(
         cls,
         line: str,
-        last_line_empty: bool,
+        prev_blank: bool,
+        type: TEXT_TYPE,
     ) -> tuple[str, bool]:
+        if type == "md":
+            # Markdown already expresses its structure; retain lists, code, and headings.
+            return line.rstrip("\r\n") + "\n", not line.strip()
+
         line = cls.clear_adv(line)
 
         if not line.strip():
-            if last_line_empty:
+            if prev_blank:
                 return "", True
             else:
                 return "\n", True
 
         if re.match(r"^\s*[-=－＝—–─]{3,}\s*$", line):
-            return '<div class="separator"></div>\n', True
+            return "\n***\n\n", True
 
         if pt := cls.match("volume", line):
-            sline = "## " if last_line_empty else "\n## "
+            sline = "# " if prev_blank else "\n# "
 
-            if pt.get("chapter"):
-                sline += f"第{cls._int_to_chinese(int(pt['chapter']))}卷"
+            volume = pt.get("volume", pt.get("chapter"))
+            if volume is not None:
+                sline += f"第{cls._int_to_chinese(int(volume))}卷"
 
-            if pt.get("chapter") and pt.get("title"):
+            if volume is not None and pt.get("title"):
                 sline += " "
 
             if pt.get("title"):
@@ -163,7 +176,7 @@ class ParseBase:
             return sline, True
 
         elif pt := cls.match("chapter", line):
-            sline = "# " if last_line_empty else "\n# "
+            sline = "## " if prev_blank else "\n## "
 
             if pt.get("chapter"):
                 sline += f"第{pt[('chapter')]}章"
@@ -181,7 +194,7 @@ class ParseBase:
             return sline, True
 
         elif line.startswith(" ") or line.startswith("\t") or line.startswith("　"):
-            if last_line_empty:
+            if prev_blank:
                 return f"{line.strip()}\n", False
             else:
                 return f"\n{line.strip()}\n", False
@@ -200,6 +213,7 @@ class ParseBase:
                 .replace(r"{title}", "a")
                 .replace(r"{creator}", "a")
                 .replace(r"{chapter}", "aa")
+                .replace(r"{volume}", "aa")
                 .replace(r"{extchapter}", "aa")
             ),
             reverse=True,
@@ -292,7 +306,8 @@ class ParseBase:
             result = []
             zero_pending = False
 
-            for divisor, unit in UNIT_MAP.items():
+            for divisor in (1000, 100, 10):
+                unit = UNIT_MAP[divisor]
                 digit, num = divmod(num, divisor)
 
                 if digit:

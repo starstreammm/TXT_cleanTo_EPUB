@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
-from src.parse import ParseBase as pa
+from core.parse import ParseBase as pa
 
 test_router = APIRouter(prefix="/test", tags=["Test"])
 

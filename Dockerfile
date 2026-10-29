@@ -27,7 +27,6 @@ VOLUME /app/data
 RUN apk add --no-cache tini supervisor pandoc
 
 # Copy Python environment
-COPY --from=backend-build /usr/local/bin/python /usr/local/bin/python
 COPY --from=backend-build /app/.venv /app/.venv
 ENV PYTHONPATH="/app/.venv/lib/python3.14/site-packages"
 
@@ -41,7 +40,8 @@ RUN chmod +x /usr/local/bin/nginx_entrypoint.sh
 
 # Copy application code
 COPY supervisord.conf .
-COPY api ./api
+COPY src ./src
+COPY public/epub.css ./public/epub.css
 
 # Start: Python + Nginx
 ENTRYPOINT ["tini", "--"]

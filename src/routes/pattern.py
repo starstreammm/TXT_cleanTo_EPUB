@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from models import Pattern, PatternType
-from src.parse import ParseBase as pa
+from core.parse import ParseBase as pa
 
 pattern_router = APIRouter(prefix="/pattern", tags=["Pattern"])
 

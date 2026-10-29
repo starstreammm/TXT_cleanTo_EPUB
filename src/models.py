@@ -4,14 +4,14 @@ from typing import Literal, Optional
 from datetime import datetime, timezone
 
 # const
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 TEXT_SUFFIXES = [".txt", ".md"]
 TEXT_TYPE = Literal["txt", "md"]
 PIC_SUFFIXES = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"]
 SUPPORTED_SUFFIXES = TEXT_SUFFIXES + PIC_SUFFIXES
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data"
-CSS_PATH = Path(__file__).resolve().parent / "epub.css"
+CSS_PATH = Path(__file__).resolve().parent.parent / "public" / "epub.css"
 
 PatternType = Literal["file", "chapter", "adv", "volume"]
 
@@ -20,14 +20,13 @@ PatternType = Literal["file", "chapter", "adv", "volume"]
 class TranConfig(BaseModel):
     output: Path
 
-    chapter_separatly: bool = False
-    volume_separatly: bool = False
-
     save_text: bool = False
+    move_images: bool = False
     del_origin: bool = False
 
 
 class ApiExecuteResponse(BaseModel):
+    uid: str
     filename: str
     progress: int = 0
     error: str | None = None
@@ -42,7 +41,6 @@ class MetaData(BaseModel):
     language: Optional[str] = None
     description: Optional[str] = None
     source: Optional[str] = None
-    series_index: int | None = None
     cover: Optional[Path] = None
 
     @field_serializer("date", when_used="json")
@@ -57,6 +55,12 @@ class ApiUpdateFileInfo(MetaData):
 
 class FileInfo(ApiUpdateFileInfo):
     type: TEXT_TYPE
+    source_name: str
+
+
+class PathEntry(BaseModel):
+    name: str
+    is_file: bool
 
 
 class Pattern(BaseModel):

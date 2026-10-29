@@ -1,22 +1,20 @@
 import { Box } from '@mui/material';
-import { useState } from "react";
+import { matchPath, Outlet, useLocation, useNavigate } from "react-router";
 
 import SetpAppBar from "./appbar";
-import PathSelector from '~/steps/path_select';
-import MatchAndEdit from '~/steps/match_edit/index';
-import TranConfig from '~/steps/tran_config';
-import ProgressResult from '~/steps/progress_result/index';
+const stepPaths = ["/", "/match-edit", "/convert-options", "/results"];
 
-
-
-export default function Home() {
-    // Path & ls state
-    const [activeStep, setActiveStep] = useState(0);
-
+export default function StepLayout() {
+    const { pathname } = useLocation();
+    const navigate = useNavigate();
+    const activeStep = stepPaths.findIndex((path) => matchPath(path, pathname));
 
     return (
         <>
-            <SetpAppBar step={activeStep} setStep={setActiveStep} />
+            <SetpAppBar
+                step={activeStep}
+                onBack={() => void navigate(stepPaths[Math.max(activeStep - 1, 0)])}
+            />
 
             <Box sx={{
                 position: "absolute",
@@ -29,10 +27,7 @@ export default function Home() {
                 alignItems: 'center',
                 backgroundColor: (theme) => theme.vars?.palette.background.default,
             }}>
-                {activeStep === 0 && <PathSelector onNext={() => setActiveStep(1)} />}
-                {activeStep === 1 && <MatchAndEdit onNext={() => setActiveStep(2)} />}
-                {activeStep === 2 && <TranConfig onNext={() => setActiveStep(3)} />}
-                {activeStep === 3 && <ProgressResult />}
+                <Outlet />
             </Box>
         </>
     );

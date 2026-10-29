@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import "./success.css";
 
 export default function AppleSuccess() {
+    const navigate = useNavigate();
     const [animate, setAnimate] = useState(false);
 
     useEffect(() => {
@@ -11,7 +13,9 @@ export default function AppleSuccess() {
     return (
         <div
             className="success-overlay"
-            onClick={() => animate && window.location.reload()}
+            onClick={() => {
+                if (animate) void navigate("/", { replace: true });
+            }}
         >
             <div className={`success-card ${animate ? "show" : ""}`}>
                 <svg viewBox="0 0 56 56" className="success-icon">
@@ -20,7 +24,9 @@ export default function AppleSuccess() {
                 </svg>
 
                 <div className="title">Success</div>
-                <div className="subtitle">Click anywhere to return</div>
+                <div className="subtitle">
+                    Click anywhere to return to Step 1
+                </div>
             </div>
         </div>
     );

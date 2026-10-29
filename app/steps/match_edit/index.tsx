@@ -1,6 +1,6 @@
 import { Box, Divider, Fab, Tooltip } from "@mui/material";
-import SpellcheckRoundedIcon from '@mui/icons-material/SpellcheckRounded';
-import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded';
+import SpellcheckRoundedIcon from "@mui/icons-material/SpellcheckRounded";
+import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -10,8 +10,6 @@ import FileList from "./list";
 import TextEditor from "./editor";
 import { fetchFileList } from "./function";
 
-
-
 export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
     const [open, setOpen] = useState<string | null>(null);
     const [showFileList, setShowFileList] = useState(true);
@@ -20,60 +18,91 @@ export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
 
     useEffect(() => {
         fetchFileList()
-            .then((data) => setFiles(data));
+            .then((data) => {
+                setFiles(data);
+                setOpen(data[0]?.uid ?? null);
+                setShowFileList(data.length > 1);
+            })
+            .catch(() => setFiles([]));
     }, []);
 
-
     return (
-        <Box sx={{
-            display: 'flex',
-            width: '100%',
-            height: '100%',
-        }}>
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                width: showFileList ? 233 : 0,
-                height: '100%',
-                overflowY: 'auto',
-            }}>
-                <Tooltip title="Next Step" placement="right" arrow>
-                    <Fab
-                        size="small"
-                        color="secondary"
-                        variant="extended"
-                        onClick={() => {
-                            editorRef.current?.()
-                                .then(() => onNext());
-                        }}
+        <Box
+            sx={{
+                display: "flex",
+                width: "100%",
+                height: "100%",
+            }}
+        >
+            <Tooltip title="Next Step" placement="right" arrow>
+                <Fab
+                    size="small"
+                    color="secondary"
+                    variant="extended"
+                    disabled={!files.length}
+                    onClick={() => {
+                        editorRef
+                            .current?.()
+                            .then(() => onNext())
+                            .catch(() => {
+                                // The editor reports save failures and stays open.
+                            });
+                    }}
+                    sx={{
+                        position: "absolute",
+                        bottom: 13,
+                        left: files.length > 1 && showFileList ? 153 : 13,
+                        zIndex: 1,
+                        gap: 1,
+                    }}
+                >
+                    <SpellcheckRoundedIcon />
+                    <NavigateNextRoundedIcon />
+                </Fab>
+            </Tooltip>
+            {files.length > 1 && showFileList && (
+                <>
+                    <Box
                         sx={{
-                            display: showFileList ? 'flex' : 'none',
-                            position: 'absolute',
-                            bottom: 13,
-                            left: 153,
-                            gap: 1,
+                            width: 233,
+                            flexShrink: 0,
+                            height: "100%",
+                            overflowY: "auto",
                         }}
                     >
-                        <SpellcheckRoundedIcon />
-                        <NavigateNextRoundedIcon />
-                    </Fab>
-                </Tooltip>
-                <FileList files={files} onOpen={(file) => {
-                    editorRef.current?.()
-                        .then(() => setOpen(file.uid));
-                }} />
-            </Box>
-            <Divider orientation="vertical" />
-            <Box sx={{
-                flex: 1,
-                minWidth: 0,
-                minHeight: 0,
-            }}>
+                        <FileList
+                            files={files}
+                            selectedUid={open}
+                            onOpen={(file) => {
+                                editorRef
+                                    .current?.()
+                                    .then(() => setOpen(file.uid))
+                                    .catch(() => {
+                                        // The editor reports save failures and stays open.
+                                    });
+                            }}
+                        />
+                    </Box>
+                    <Divider orientation="vertical" />
+                </>
+            )}
+            <Box
+                sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    minHeight: 0,
+                }}
+            >
                 <TextEditor
+                    key={open}
                     ref={editorRef}
                     file={files.find((file) => file.uid === open) || null}
-                    setFile={(action: ((prev: FileInfo) => FileInfo) | FileInfo) => {
-                        const index = files.findIndex((file) => file.uid === open);
+                    setFile={(
+                        action: ((prev: FileInfo) => FileInfo) | FileInfo,
+                    ) => {
+                        const index = files.findIndex(
+                            (file) => file.uid === open,
+                        );
 
                         if (index === -1) {
                             pushMsg("Editor: Invalid UID.", "error");
@@ -81,10 +110,9 @@ export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
                         }
 
                         let content: FileInfo;
-                        if (typeof action === 'function') {
+                        if (typeof action === "function") {
                             content = action(files[index]);
-                        }
-                        else {
+                        } else {
                             content = action;
                         }
 
@@ -94,10 +122,11 @@ export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
                             return newFiles;
                         });
                     }}
-                    showFileList={showFileList}
+                    hasFileList={files.length > 1}
+                    showFileList={files.length > 1 && showFileList}
                     setShowFileList={setShowFileList}
                 />
             </Box>
         </Box>
-    )
+    );
 }

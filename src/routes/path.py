@@ -3,7 +3,8 @@ from pathlib import Path
 from pypinyin import lazy_pinyin
 from natsort import natsorted
 
-from src.logger import LoggerBase as lg
+from core.logger import LoggerBase as lg
+from models import PathEntry, TEXT_SUFFIXES
 
 path_router = APIRouter(prefix="/path", tags=["Path"])
 
@@ -16,21 +17,23 @@ async def get_home_path():
     return str(Path.home().resolve())
 
 
-@path_router.get("/ls", response_model=list[str])
-async def list_directory(path: str):
+@path_router.get("/ls", response_model=list[PathEntry])
+async def list_directory(path: str, include_files: bool = False):
     path_t = Path(path)
     if not path_t.exists():
         raise ValueError(f"Path '{path}' does not exist.")
     if not path_t.is_dir():
         raise ValueError(f"Path '{path}' is not a directory.")
 
-    dir: list[str] = []
+    entries: list[PathEntry] = []
     for p in path_t.iterdir():
         if p.name.startswith("."):
             continue
-        elif p.is_dir():
-            dir.append(p.name)
-    return natsorted(dir, key=lambda x: lazy_pinyin(x))
+        if p.is_dir() or (
+            include_files and p.is_file() and p.suffix.lower() in TEXT_SUFFIXES
+        ):
+            entries.append(PathEntry(name=p.name, is_file=p.is_file()))
+    return natsorted(entries, key=lambda entry: lazy_pinyin(entry.name))
 
 
 @path_router.get("/mkdir", response_model=None)

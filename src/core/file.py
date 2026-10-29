@@ -1,12 +1,14 @@
 import uuid
 import aiofiles
+import yaml
 from pathlib import Path
 from typing import AsyncGenerator
 from datetime import datetime
+from urllib.parse import unquote
 
 from models import TEXT_SUFFIXES, TEXT_TYPE, DATA_PATH, FileInfo, MetaData
-from src.parse import ParseBase as pa
-from src.logger import LoggerBase as lg
+from core.parse import ParseBase as pa
+from core.logger import LoggerBase as lg
 
 TEMP_PATH = DATA_PATH / "temp"
 TEMP_PATH.mkdir(parents=True, exist_ok=True)
@@ -59,6 +61,7 @@ class FileBase:
             uid=self.uid,
             filename=self.get_filename(),
             type=self.type,
+            source_name=self.path.name,
             **self.metadata.model_dump(),
         )
 
@@ -98,7 +101,7 @@ class FileBase:
         """
         Get the absolute path of an image by its source path.
         """
-        img_path = Path(src)
+        img_path = Path(unquote(src))
         if not img_path.is_absolute():
             img_path = self.path.parent / img_path
         return img_path.resolve()
@@ -185,8 +188,6 @@ class FileBase:
         if self.type == "md":
             with open(self.path, "r", encoding=self.encoding) as f:
                 if f.readline().strip() == "---":
-                    import yaml
-
                     yaml_lines = []
 
                     for line in f:
@@ -197,13 +198,26 @@ class FileBase:
                     metadata = yaml.safe_load("".join(yaml_lines)) or {}
 
                     res.title = metadata.get("title", res.title)
-                    res.creator = "; ".join(metadata.get("creator", [res.creator]))
+
+                    def people(key, default=None):
+                        value = metadata.get(key, default)
+                        if isinstance(value, list):
+                            return "; ".join(
+                                str(item) for item in value if item is not None
+                            )
+                        return value
+
+                    res.creator = people("creator", res.creator)
                     res.date = metadata.get("date", res.date)
 
-                    res.contributor = "; ".join(metadata.get("contributor", []))
-                    res.publisher = "; ".join(metadata.get("publisher", []))
+                    res.contributor = people("contributor")
+                    res.publisher = people("publisher")
                     res.language = metadata.get("language")
                     res.description = metadata.get("description")
                     res.source = metadata.get("source")
+
+                    cover = metadata.get("cover")
+                    if cover:
+                        res.cover = self.get_image_path(str(cover))
 
         return res

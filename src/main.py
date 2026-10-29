@@ -8,8 +8,8 @@ from fastapi.responses import JSONResponse
 from fastapi.concurrency import asynccontextmanager
 
 from models import DATA_PATH, VERSION
-from src.logger import LoggerBase as lg
-from src.parse import ParseBase as pa
+from core.logger import LoggerBase as lg
+from core.parse import ParseBase as pa
 
 from routes import *
 

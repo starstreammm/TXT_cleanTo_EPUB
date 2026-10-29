@@ -10,14 +10,14 @@ p {
 }
 
 /* Prevent first paragraph after heading from not being indented */
-h1+p,
-h2+p,
-h3+p {
+h1 + p,
+h2 + p,
+h3 + p {
     text-indent: 2em;
 }
 
 /* Volume Titles */
-h2 {
+h1 {
     box-sizing: border-box;
 
     min-height: 90vh;
@@ -33,18 +33,16 @@ h2 {
     font-size: 2.2em;
     font-weight: 600;
     line-height: 1.4;
-
-    page-break-after: always;
-    break-after: page;
 }
 
 /* Chapter Titles */
-h1 {
+h2 {
     font-size: 1.3em;
     margin-top: 1.8em;
     margin-bottom: 0.8em;
 }
 
+/* Section Titles */
 h3 {
     font-size: 1.1em;
     margin-top: 1.5em;
@@ -57,10 +55,12 @@ li {
 }
 
 /* Separator */
+hr,
 .separator {
     display: block;
     /* 独占一行 */
-    border-bottom: 1px solid #81D8D0;
+    border: 0;
+    border-bottom: 1px solid #81d8d0;
     /* 横线样式 */
     margin: 1em 0;
     /* 上下间距 */

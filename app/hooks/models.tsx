@@ -1,3 +1,4 @@
+export const VERSION = "v1.1.0";
 export const TEXT_SUFFIXES = [".txt", ".md"] as const;
 export const PIC_SUFFIXES = [
     ".jpg",
@@ -7,10 +8,7 @@ export const PIC_SUFFIXES = [
     ".svg",
     ".webp",
 ] as const;
-export const SUPPORTED_SUFFIXES = [
-    ...TEXT_SUFFIXES,
-    ...PIC_SUFFIXES,
-] as const;
+export const SUPPORTED_SUFFIXES = [...TEXT_SUFFIXES, ...PIC_SUFFIXES] as const;
 export type PatternType = "file" | "chapter" | "adv" | "volume";
 export const Language: Record<string, string> = {
     zh: "中文",
@@ -40,14 +38,13 @@ export const Language: Record<string, string> = {
 export interface TranConfig {
     output: string;
 
-    chapter_separatly: boolean;
-    volume_separatly: boolean;
-
     save_text: boolean;
+    move_images: boolean;
     del_origin: boolean;
 }
 
 export interface ApiExecuteResponse {
+    uid: string;
     filename: string;
     progress: number;
     error: string | null;
@@ -62,7 +59,6 @@ export interface MetaData {
     language?: string | null;
     description?: string | null;
     source?: string | null;
-    series_index?: number | null;
     cover?: string | null;
 }
 
@@ -73,6 +69,12 @@ export interface ApiUpdateFileInfo extends MetaData {
 
 export interface FileInfo extends ApiUpdateFileInfo {
     type: "txt" | "md";
+    source_name: string;
+}
+
+export interface PathEntry {
+    name: string;
+    is_file: boolean;
 }
 
 export interface TextLineChange {

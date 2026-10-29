@@ -8,23 +8,28 @@ import {
     Button,
     Badge,
 } from "@mui/material";
-import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded';
-import WrapTextRoundedIcon from '@mui/icons-material/WrapTextRounded';
-import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
-import VerticalSplitRoundedIcon from '@mui/icons-material/VerticalSplitRounded';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import RemoveRoundedIcon from '@mui/icons-material/RemoveRounded';
-import SyncRoundedIcon from '@mui/icons-material/SyncRounded';
-import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
-import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
+import MenuOpenRoundedIcon from "@mui/icons-material/MenuOpenRounded";
+import WrapTextRoundedIcon from "@mui/icons-material/WrapTextRounded";
+import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
+import VerticalSplitRoundedIcon from "@mui/icons-material/VerticalSplitRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
+import SyncRoundedIcon from "@mui/icons-material/SyncRounded";
+import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
+import FindReplaceRoundedIcon from "@mui/icons-material/FindReplaceRounded";
+import UndoRoundedIcon from "@mui/icons-material/UndoRounded";
 
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
 import PatternDialog from "~/components/pattern";
 
-
-function ToolIconButton({ props, icon, onClick, desc }: {
+function ToolIconButton({
+    props,
+    icon,
+    onClick,
+    desc,
+}: {
     props?: IconButtonProps;
     icon: React.ReactNode;
     onClick: () => void;
@@ -33,6 +38,7 @@ function ToolIconButton({ props, icon, onClick, desc }: {
     const Button = (
         <IconButton
             size="small"
+            aria-label={desc}
             onClick={onClick}
             sx={{ borderRadius: "3%" }}
             {...props}
@@ -47,15 +53,13 @@ function ToolIconButton({ props, icon, onClick, desc }: {
                 {Button}
             </Tooltip>
         );
-
-    else
-        return Button;
+    else return Button;
 }
 
-const ToolDivider = (<Divider orientation="vertical" flexItem />);
-
+const ToolDivider = <Divider orientation="vertical" flexItem />;
 
 export function EditorToolBar({
+    hasFileList,
     showFileList,
     setShowFileList,
     fontSize,
@@ -69,7 +73,11 @@ export function EditorToolBar({
     onRefresh,
     onReset,
     setMetaData,
+    showReplacements,
+    onToggleReplacements,
+    onPatternClose,
 }: {
+    hasFileList: boolean;
     showFileList: boolean;
     setShowFileList: Dispatch<SetStateAction<boolean>>;
     fontSize: number;
@@ -77,41 +85,48 @@ export function EditorToolBar({
     wordWrap: boolean;
     setWordWrap: Dispatch<SetStateAction<boolean>>;
     diff: boolean;
-    setDiff?: Dispatch<SetStateAction<boolean>>;
+    setDiff: Dispatch<SetStateAction<boolean>>;
     unsave: boolean;
     onSave: () => void;
     onRefresh: () => void;
     onReset: () => void;
     setMetaData: () => void;
+    showReplacements: boolean;
+    onToggleReplacements: () => void;
+    onPatternClose: () => void;
 }) {
     const [openPattern, setOpenPattern] = useState(false);
 
     return (
-        <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            px: 1,
-            gap: 1,
-            width: '100%',
-        }}>
-            <ToolIconButton
-                icon={<MenuOpenRoundedIcon />}
-                onClick={() => setShowFileList(!showFileList)}
-                props={{
-                    sx: {
-                        borderRadius: "3%",
-                        transform: showFileList ? 'none' : 'rotate(180deg)',
-                        transition: 'transform 0.8s ease',
-                    }
-                }}
-            />
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                px: 1,
+                gap: 1,
+                width: "100%",
+                flexWrap: "wrap",
+            }}
+        >
+            {hasFileList && (
+                <ToolIconButton
+                    icon={<MenuOpenRoundedIcon />}
+                    onClick={() => setShowFileList(!showFileList)}
+                    props={{
+                        sx: {
+                            borderRadius: "3%",
+                            transform: showFileList ? "none" : "rotate(180deg)",
+                            transition: "transform 0.8s ease",
+                        },
+                    }}
+                />
+            )}
             <ToolIconButton
                 icon={<EditNoteRoundedIcon />}
                 onClick={setMetaData}
                 desc="Edit Metadata"
                 props={{ sx: { borderRadius: "3%", mr: "auto" } }}
             />
-
 
             <ToolIconButton
                 icon={<SyncRoundedIcon />}
@@ -120,23 +135,38 @@ export function EditorToolBar({
             />
             {ToolDivider}
 
-
-            {openPattern &&
+            {openPattern && (
                 <PatternDialog
                     exclude={["file"]}
-                    onClose={() => setOpenPattern(false)}
+                    onClose={() => {
+                        setOpenPattern(false);
+                        onPatternClose();
+                    }}
                 />
-            }
-            <Button onClick={() => setOpenPattern(true)} size="small" variant="outlined">
+            )}
+            <Button
+                onClick={() => setOpenPattern(true)}
+                size="small"
+                variant="outlined"
+            >
                 Edit Pattern
             </Button>
             {ToolDivider}
 
-
+            <ToolIconButton
+                icon={
+                    <FindReplaceRoundedIcon
+                        color={showReplacements ? "primary" : undefined}
+                    />
+                }
+                onClick={onToggleReplacements}
+                desc="Saved Replacements"
+            />
+            {ToolDivider}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <ToolIconButton
                     icon={<RemoveRoundedIcon />}
-                    onClick={() => setFontSize(prev => Math.max(8, prev - 1))}
+                    onClick={() => setFontSize((prev) => Math.max(8, prev - 1))}
                     desc="Decrease Font Size"
                 />
                 <TextField
@@ -158,27 +188,34 @@ export function EditorToolBar({
                 />
                 <ToolIconButton
                     icon={<AddRoundedIcon />}
-                    onClick={() => setFontSize(prev => Math.min(32, prev + 1))}
+                    onClick={() =>
+                        setFontSize((prev) => Math.min(32, prev + 1))
+                    }
                     desc="Increase Font Size"
                 />
             </Box>
             {ToolDivider}
 
-
-
             <ToolIconButton
-                icon={<VerticalSplitRoundedIcon color={diff ? "primary" : "disabled"} />}
+                icon={
+                    <VerticalSplitRoundedIcon
+                        color={diff ? "primary" : "disabled"}
+                    />
+                }
                 onClick={() => setDiff?.(!diff)}
-                desc="Diff View"
+                desc="Markdown Preview"
                 props={{ disabled: !setDiff }}
             />
             <ToolIconButton
-                icon={<WrapTextRoundedIcon color={wordWrap ? "primary" : "disabled"} />}
+                icon={
+                    <WrapTextRoundedIcon
+                        color={wordWrap ? "primary" : "disabled"}
+                    />
+                }
                 onClick={() => setWordWrap(!wordWrap)}
                 desc="Word Wrap"
             />
             {ToolDivider}
-
 
             <ToolIconButton
                 icon={<UndoRoundedIcon />}
@@ -187,9 +224,11 @@ export function EditorToolBar({
                 props={{ disabled: !unsave }}
             />
             <ToolIconButton
-                icon={<Badge invisible={!unsave} color="error" variant="dot">
-                    <SaveRoundedIcon color={unsave ? "info" : undefined} />
-                </Badge>}
+                icon={
+                    <Badge invisible={!unsave} color="error" variant="dot">
+                        <SaveRoundedIcon color={unsave ? "info" : undefined} />
+                    </Badge>
+                }
                 onClick={onSave}
                 desc="Save Changes"
                 props={{ disabled: !unsave }}
