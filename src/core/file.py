@@ -216,7 +216,7 @@ class FileBase:
                     res.description = metadata.get("description")
                     res.source = metadata.get("source")
 
-                    cover = metadata.get("cover")
+                    cover = metadata.get("cover") or metadata.get("cover-image")
                     if cover:
                         res.cover = self.get_image_path(str(cover))
 

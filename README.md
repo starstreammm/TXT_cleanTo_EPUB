@@ -134,11 +134,13 @@ Each selected source produces one book; volume and chapter headings define its t
 
 Markdown input may start with YAML front matter. Supported metadata includes `title`, `creator`, `contributor`, `publisher`, `date`, `language`, `description`, `source`, and `cover` (also accepted as `cover-image`). Cover paths are resolved relative to the Markdown file when opened. Multiple creators, contributors, and publishers are written as separate EPUB metadata entries; enter multiple values in the UI separated with semicolons.
 
-For Markdown images, use normal Markdown syntax such as `![Cover](images/cover.jpg)`. Relative paths are resolved from the source file’s directory. You can set a dedicated cover path in the metadata editor; otherwise, the application generates a cover.
+For Markdown images, use normal Markdown syntax such as `![Cover](images/cover.jpg)`. Relative paths are resolved from the source file’s directory. You can set a dedicated cover path in the metadata editor, also relative to the source file’s directory. The application generates a cover only when no cover is set; a missing selected cover reports an error instead.
 
 With **Move Images** enabled, local inline images and the cover (including an automatically generated cover) are placed beside each output Markdown/EPUB pair, preserving their formats. Markdown uses links such as `./P1.jpg` and YAML `cover: ./cover.jpg`. Repeated references share one image per output folder. Existing inline filenames are skipped; a conflicting cover reports an error instead of overwriting it. Source images are removed only after every conversion in the batch succeeds. With the switch off, images remain at their original locations and Markdown uses relative paths back to them. Remote and data URLs remain unchanged.
 
 Markdown input retains its heading levels, lists, whitespace, and fenced code without applying TXT matching or advertisement removal.
+
+When all headings are level 2 (`##`), EPUB chapters keep their `h2` styling and appear at the top level of the table of contents, without an automatically inserted level-1 book heading. Text before the first heading is preserved without a visible title or an extra TOC entry.
 
 ## Architecture
 

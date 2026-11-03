@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from pathlib import Path
 from typing import Literal, Optional
 from datetime import datetime, timezone
@@ -42,6 +42,11 @@ class MetaData(BaseModel):
     description: Optional[str] = None
     source: Optional[str] = None
     cover: Optional[Path] = None
+
+    @field_validator("cover", mode="before")
+    @classmethod
+    def normalize_cover(cls, value: str | Path | None) -> str | Path | None:
+        return None if value == "" else value
 
     @field_serializer("date", when_used="json")
     def serialize_date(self, date: datetime) -> str:

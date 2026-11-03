@@ -137,7 +137,7 @@ class TranWorker:
             return self.cover_path
 
         source = self.file.metadata.cover
-        if source is None or not source.is_file():
+        if source is None:
             generate_cover(
                 self.file.uid,
                 self.file.metadata.title,
@@ -145,8 +145,12 @@ class TranWorker:
             )
             source = COVER_PATH / f"{self.file.uid}.jpg"
 
-        elif not source.is_absolute():
-            source = self.file.path.parent / source
+        else:
+            if not source.is_absolute():
+                source = self.file.path.parent / source
+            source = source.resolve()
+            if not source.is_file():
+                raise FileNotFoundError(f"Cover not found: {source}")
 
         destination = source.resolve()
         if self.config.move_images:
@@ -170,11 +174,12 @@ class TranWorker:
             format="markdown",
             outputfile=input.with_suffix(".epub"),
             extra_args=[
+                f"--lua-filter={Path(__file__).with_name('epub_headings.lua').resolve()}",
                 f"--resource-path={input.parent.resolve()}",
                 f"--css={str(CSS_PATH.resolve())}",
                 "--split-level=2",
                 "--epub-title-page=false",
-                "--toc",
+                "--toc=false",
                 "--toc-depth=2",
                 f"--epub-cover-image={self._cover_path(input.parent)}",
             ],

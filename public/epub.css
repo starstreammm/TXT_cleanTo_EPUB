@@ -42,6 +42,11 @@ h2 {
     margin-bottom: 0.8em;
 }
 
+/* Hide the structural heading used for text before the first chapter. */
+h2.epub-preamble-heading {
+    display: none;
+}
+
 /* Section Titles */
 h3 {
     font-size: 1.1em;
@@ -62,7 +67,7 @@ hr,
     border: 0;
     border-bottom: 1px solid #81d8d0;
     /* 横线样式 */
-    margin: 1em 0;
+    margin: 2em 0;
     /* 上下间距 */
     height: 0;
     /* 本身不占高度 */

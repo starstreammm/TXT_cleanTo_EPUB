@@ -1,5 +1,6 @@
 .DS_Store
 .env
+/compose.yaml
 /node_modules/
 test/
 .temp/

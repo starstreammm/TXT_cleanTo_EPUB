@@ -1,5 +1,5 @@
 # ===== 1. Python Build =====
-FROM python:3.14.6-alpine3.24 AS backend-build
+FROM python:3.14.10-alpine3.24 AS backend-build
 
 WORKDIR /app
 
