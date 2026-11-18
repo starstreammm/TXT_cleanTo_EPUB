@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { Box, Divider, Fab, Tooltip } from "@mui/material";
 import SpellcheckRoundedIcon from "@mui/icons-material/SpellcheckRounded";
 import NavigateNextRoundedIcon from "@mui/icons-material/NavigateNextRounded";
@@ -10,7 +11,8 @@ import FileList from "./list";
 import TextEditor from "./editor";
 import { fetchFileList } from "./function";
 
-export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
+export default function MatchAndEdit() {
+    const navigate = useNavigate();
     const [open, setOpen] = useState<string | null>(null);
     const [showFileList, setShowFileList] = useState(true);
     const [files, setFiles] = useState<FileInfo[]>([]);
@@ -34,7 +36,7 @@ export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
                 height: "100%",
             }}
         >
-            <Tooltip title="Next Step" placement="right" arrow>
+            <Tooltip title="Next Step" placement="bottom" arrow>
                 <Fab
                     size="small"
                     color="secondary"
@@ -43,7 +45,7 @@ export default function MatchAndEdit({ onNext }: { onNext: () => void }) {
                     onClick={() => {
                         editorRef
                             .current?.()
-                            .then(() => onNext())
+                            .then(() => void navigate("/convert-options"))
                             .catch(() => {
                                 // The editor reports save failures and stays open.
                             });

@@ -3,7 +3,7 @@ from pathlib import Path
 from pypinyin import lazy_pinyin
 from natsort import natsorted
 
-from core.logger import LoggerBase as lg
+from utils.logger import LoggerBase as lg
 from models import PathEntry, TEXT_SUFFIXES
 
 path_router = APIRouter(prefix="/path", tags=["Path"])

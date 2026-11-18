@@ -1,21 +1,10 @@
-import { Backdrop, Paper, Box, Popper } from "@mui/material";
-import { useMemo, useRef, useState } from "react";
+import { Backdrop, Box } from "@mui/material";
+import { useState } from "react";
 import type * as Monaco from "monaco-editor";
 
 interface ImagePreviewInfo {
     src: string;
     alt: string;
-    /** screen rect of the cover widget, use it to position your popup */
-    anchor: DOMRect;
-    /** range of the whole ![alt](src) text in the model */
-    range: Monaco.IRange;
-}
-
-/** the popup API you implement */
-interface ImagePreviewApi {
-    open: (info: ImagePreviewInfo) => void;
-    onClick: () => void;
-    close: () => void;
 }
 
 const IMG_RE = String.raw`!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)`;
@@ -32,7 +21,7 @@ function ensureStyle() {
 export function setupImagePreview(
     editor: Monaco.editor.IStandaloneCodeEditor,
     monaco: typeof Monaco,
-    getApi: () => ImagePreviewApi | undefined, // read lazily, avoids stale closures
+    onPreview: (info: ImagePreviewInfo) => void,
 ) {
     ensureStyle();
 
@@ -60,11 +49,7 @@ export function setupImagePreview(
         `;
         dom.textContent = `🖼 ${alt || src}`;
 
-        dom.onmouseenter = () =>
-            getApi()?.open({ src, alt, range, anchor: dom.getBoundingClientRect() });
-        dom.onclick = () =>
-            getApi()?.onClick();
-        dom.onmouseleave = () => getApi()?.close();
+        dom.onclick = () => onPreview({ src, alt });
 
         return {
             getId: () => id,
@@ -137,194 +122,34 @@ export function setupImagePreview(
         widgets.forEach((w) => editor.removeContentWidget(w));
         widgets.clear();
         decorations.clear();
-        getApi()?.close();
     };
 }
 
-/** returns the api for setupImagePreview and the element to render */
 export function useImagePreviewPopup(uid: string) {
     const [info, setInfo] = useState<ImagePreviewInfo | null>(null);
-    const [backdropOpen, setBackdropOpen] = useState(false);
-
-    const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const widgetHovered = useRef(false);
-    const popperHovered = useRef(false);
-    const backdropOpened = useRef(false);
-
-    const clearCloseTimer = () => {
-        if (closeTimer.current !== null) {
-            clearTimeout(closeTimer.current);
-            closeTimer.current = null;
-        }
-    };
-
-    const scheduleClose = (delay = 150) => {
-        clearCloseTimer();
-
-        if (backdropOpened.current) return;
-
-        closeTimer.current = setTimeout(() => {
-            closeTimer.current = null;
-
-            if (
-                !widgetHovered.current &&
-                !popperHovered.current &&
-                !backdropOpened.current
-            ) {
-                setInfo(null);
-            }
-        }, delay);
-    };
-
-    const api = useMemo<ImagePreviewApi>(() => ({
-        open: (i) => {
-            clearCloseTimer();
-            widgetHovered.current = true;
-            setInfo(i);
-        },
-
-        onClick: () => {
-            clearCloseTimer();
-
-            widgetHovered.current = false;
-            popperHovered.current = false;
-
-            setBackdropOpen(true);
-            backdropOpened.current = true;
-        },
-
-        close: () => {
-            widgetHovered.current = false;
-            scheduleClose();
-        },
-    }), []);
-
-    const imageSrc =
-        `/api/file/image?uid=${encodeURIComponent(uid)}&src=${encodeURIComponent(info?.src || "")}`;
-
-    const virtualAnchor = info
-        ? {
-            // PopoverVirtualElement 需要这个
-            nodeType: 1,
-
-            getBoundingClientRect: () => info.anchor,
-
-            // 给 Popper 一个上下文元素，计算 viewport boundary 时更稳定
-            contextElement: document.body,
-        }
-        : null;
 
     const component = info && (
-        <>
-            <Popper
-                open={!backdropOpen}
-                anchorEl={virtualAnchor}
-                placement="bottom-start"
-                modifiers={[
-                    {
-                        name: "offset",
-                        options: {
-                            offset: [0, 6],
-                        },
-                    },
-                    {
-                        name: "flip",
-                        options: {
-                            boundary: "viewport",
-                            rootBoundary: "viewport",
-
-                            // 不要只允许 top
-                            fallbackPlacements: [
-                                "top-start",
-                                "bottom-end",
-                                "top-end",
-                                "right-start",
-                                "right-end",
-                                "left-start",
-                                "left-end",
-                            ],
-
-                            padding: 8,
-                        },
-                    },
-                    {
-                        name: "preventOverflow",
-                        options: {
-                            boundary: "viewport",
-                            rootBoundary: "viewport",
-                            padding: 8,
-
-                            // 允许在另一条轴上移动
-                            altAxis: true,
-
-                            // 不要强行把 anchor 和 popup 连在一起
-                            tether: true,
-                        },
-                    },
-                ]}
+        <Backdrop
+            open
+            onClick={() => setInfo(null)}
+            sx={{
+                zIndex: (t) => t.zIndex.modal + 1,
+            }}
+        >
+            <Box
+                component="img"
+                src={`/api/file/image?${new URLSearchParams({ uid, src: info.src })}`}
+                alt={info.alt}
                 sx={{
-                    zIndex: (t) => t.zIndex.tooltip,
-                    cursor: "zoom-in",
+                    width: "100%",
+                    height: "100%",
+                    display: "block",
+                    objectFit: "contain",
+                    cursor: "zoom-out",
                 }}
-                onMouseEnter={() => {
-                    popperHovered.current = true;
-                    clearCloseTimer();
-                }}
-                onMouseLeave={() => {
-                    popperHovered.current = false;
-                    scheduleClose();
-                }}
-                onClick={() => {
-                    clearCloseTimer();
-
-                    widgetHovered.current = false;
-                    popperHovered.current = false;
-
-                    setBackdropOpen(true);
-                    backdropOpened.current = true;
-                }}
-            >
-                <Paper elevation={13}>
-                    <Box
-                        component="img"
-                        src={imageSrc}
-                        alt={info.alt}
-                        sx={{
-                            display: "block",
-                            maxWidth: 388,
-                            maxHeight: 388,
-                            objectFit: "contain",
-                        }}
-                    />
-                </Paper>
-            </Popper>
-
-            <Backdrop
-                open={backdropOpen}
-                onClick={() => {
-                    backdropOpened.current = false;
-                    setBackdropOpen(false);
-                    setInfo(null);
-                }}
-                sx={{
-                    zIndex: (t) => t.zIndex.modal + 1,
-                }}
-            >
-                <Box
-                    component="img"
-                    src={imageSrc}
-                    alt={info.alt}
-                    sx={{
-                        width: "100%",
-                        height: "100%",
-                        display: "block",
-                        objectFit: "contain",
-                        cursor: "zoom-out",
-                    }}
-                />
-            </Backdrop>
-        </>
+            />
+        </Backdrop>
     );
 
-    return { api, component };
+    return { open: setInfo, component };
 }

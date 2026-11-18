@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from pathlib import Path
 
 from models import FileInfo, MetaData, TEXT_TYPE
-from core.queue import FilesQueue
+from utils.queue import FilesQueue
 
 file_router = APIRouter(prefix="/file", tags=["File"])
 
@@ -70,14 +70,16 @@ async def update_file_metadata(
 
 
 @file_router.post("/preview", response_model=str)
-async def preview_file(
+def preview_file(
     text: str = Body(embed=True, description="Text content to preview"),
+    uid: str | None = None,
+    start_line: int = Query(1, ge=1),
     type: TEXT_TYPE = Query(description="Type of the text content"),
 ):
     """
     Render a preview of a content.
     """
-    return FilesQueue.preview(text, type)
+    return FilesQueue.preview(text, type, uid, start_line)
 
 
 @file_router.get("/image", response_class=FileResponse)

@@ -22,7 +22,7 @@ import UndoRoundedIcon from "@mui/icons-material/UndoRounded";
 import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import PatternDialog from "~/components/pattern";
+import HeadingPatternDialog from "./pattern";
 
 function ToolIconButton({
     props,
@@ -59,6 +59,7 @@ function ToolIconButton({
 const ToolDivider = <Divider orientation="vertical" flexItem />;
 
 export function EditorToolBar({
+    uid,
     hasFileList,
     showFileList,
     setShowFileList,
@@ -77,6 +78,7 @@ export function EditorToolBar({
     onToggleReplacements,
     onPatternClose,
 }: {
+    uid: string;
     hasFileList: boolean;
     showFileList: boolean;
     setShowFileList: Dispatch<SetStateAction<boolean>>;
@@ -136,8 +138,8 @@ export function EditorToolBar({
             {ToolDivider}
 
             {openPattern && (
-                <PatternDialog
-                    exclude={["file"]}
+                <HeadingPatternDialog
+                    uid={uid}
                     onClose={() => {
                         setOpenPattern(false);
                         onPatternClose();

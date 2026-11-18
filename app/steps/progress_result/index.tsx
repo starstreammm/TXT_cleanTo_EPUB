@@ -10,7 +10,7 @@ import {
     TableCell,
     TableBody,
 } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pushError } from "~/components/error_popout";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,6 +33,7 @@ export default function ProgressResult() {
     const [retrying, setRetrying] = useState(false);
     const { data: progress = [] } = useQuery({
         queryKey: ["progress"],
+        meta: { errorContext: "Load conversion progress", polling: true },
         queryFn: () =>
             api.get("/api/task/progress").json<ApiExecuteResponse[]>(),
         retry: 0,
@@ -42,11 +43,25 @@ export default function ProgressResult() {
 
     const { data: done = false } = useQuery({
         queryKey: ["done"],
+        meta: { errorContext: "Check conversion status", polling: true },
         queryFn: () => api.get("/api/task/done").json<boolean>(),
         retry: 0,
         refetchInterval: 888,
         refetchIntervalInBackground: true,
     });
+
+    const reportedFailures = useRef(new Map<string, string>());
+    useEffect(() => {
+        const current = new Map<string, string>();
+        for (const item of progress) {
+            if (!item.error) continue;
+            current.set(item.uid, item.error);
+            if (reportedFailures.current.get(item.uid) !== item.error) {
+                pushError(item.error, item.filename);
+            }
+        }
+        reportedFailures.current = current;
+    }, [progress]);
 
     const failedCount = progress.filter((item) => item.error).length;
     const retryFailed = async () => {
@@ -108,7 +123,6 @@ export default function ProgressResult() {
                             <TableCell>File Name</TableCell>
                             <TableCell>Status</TableCell>
                             <TableCell>Progress</TableCell>
-                            <TableCell />
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -116,22 +130,34 @@ export default function ProgressResult() {
                             <TableRow key={item.uid}>
                                 <TableCell className="col-1">
                                     {item.filename}
+                                    {item.warning && (
+                                        <Typography variant="body2" color="warning.main">
+                                            {item.warning}
+                                        </Typography>
+                                    )}
                                 </TableCell>
                                 <TableCell className="no-wrap">
-                                    <Typography
-                                        variant="body2"
-                                        sx={{
-                                            color: `${recognizeStatus(item)[1]}.main`,
-                                            fontWeight: "bold",
-                                        }}
-                                    >
-                                        {recognizeStatus(item)[0]}
-                                    </Typography>
+                                    {item.error ? (
+                                        <Button
+                                            size="small"
+                                            color="error"
+                                            onClick={() => pushError(item.error, item.filename)}
+                                        >
+                                            Show error
+                                        </Button>
+                                    ) : (
+                                        <Typography
+                                            variant="body2"
+                                            sx={{
+                                                color: `${recognizeStatus(item)[1]}.main`,
+                                                fontWeight: "bold",
+                                            }}
+                                        >
+                                            {recognizeStatus(item)[0]}
+                                        </Typography>
+                                    )}
                                 </TableCell>
-                                <TableCell
-                                    className={item.error ? "no-wrap" : "col-2"}
-                                    colSpan={item.error ? undefined : 2}
-                                >
+                                <TableCell className="col-2">
                                     <Box
                                         sx={{
                                             display: "flex",
@@ -148,11 +174,7 @@ export default function ProgressResult() {
                                                     : "determinate"
                                             }
                                             value={item.progress}
-                                            sx={{
-                                                width: item.error
-                                                    ? 300
-                                                    : "100%",
-                                            }}
+                                            sx={{ width: "100%" }}
                                         />
                                         <Typography
                                             variant="body2"
@@ -162,16 +184,6 @@ export default function ProgressResult() {
                                         </Typography>
                                     </Box>
                                 </TableCell>
-                                {item.error && (
-                                    <TableCell className="col-2">
-                                        <Typography
-                                            variant="body2"
-                                            sx={{ color: "error.main" }}
-                                        >
-                                            {item.error}
-                                        </Typography>
-                                    </TableCell>
-                                )}
                             </TableRow>
                         ))}
                     </TableBody>

@@ -8,8 +8,8 @@ from fastapi.responses import JSONResponse
 from fastapi.concurrency import asynccontextmanager
 
 from models import DATA_PATH, VERSION
-from core.logger import LoggerBase as lg
-from core.parse import ParseBase as pa
+from utils.logger import LoggerBase as lg
+from utils.parse import ParseBase as pa
 
 from routes import *
 
@@ -19,7 +19,6 @@ async def lifespan(app: FastAPI):
     lg.init()
     await pa.init()
     yield
-    await pa.close()
     shutil.rmtree(DATA_PATH / "temp", ignore_errors=True)
 
 
@@ -73,6 +72,7 @@ async def all_exception_handler(request: Request, exc: Exception):
 app.include_router(path_router)
 app.include_router(file_router)
 app.include_router(pattern_router)
+app.include_router(replacement_router)
 app.include_router(task_router)
 app.include_router(test_router)
 

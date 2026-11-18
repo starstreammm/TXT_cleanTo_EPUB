@@ -2,20 +2,20 @@ import uuid
 import aiofiles
 import yaml
 from pathlib import Path
-from typing import AsyncGenerator
-from datetime import datetime
+from typing import AsyncGenerator, TextIO
+from datetime import datetime, timezone
 from urllib.parse import unquote
 
 from models import TEXT_SUFFIXES, TEXT_TYPE, DATA_PATH, FileInfo, MetaData
-from core.parse import ParseBase as pa
-from core.logger import LoggerBase as lg
+from utils.parse import ParseBase as pa
+from utils.logger import LoggerBase as lg
 
 TEMP_PATH = DATA_PATH / "temp"
 TEMP_PATH.mkdir(parents=True, exist_ok=True)
 
 
 class FileBase:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, used_patterns: list[str] | None = None):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             raise ValueError(
                 f"Path {path} is not a valid file or in unsupported format."
@@ -25,12 +25,14 @@ class FileBase:
         self.uid = uuid.uuid4().hex
         self.path = path
         self.type: TEXT_TYPE = "txt" if path.suffix.lower() == ".txt" else "md"
+        self.source_stat = path.stat()
         self.encoding = self._encoding_detect()
-        self.metadata = self._get_metadata()
 
         # Temp File
         self.temp_file = TEMP_PATH / f"{self.uid}.{self.type}"
-        self._generate_temp_file()
+        with open(self.path, "r", encoding=self.encoding, errors="replace") as source:
+            self.metadata = self._get_metadata(source, used_patterns)
+            self._generate_temp_file(source)
 
     async def open(self) -> AsyncGenerator[str, None]:
         """
@@ -62,6 +64,8 @@ class FileBase:
             filename=self.get_filename(),
             type=self.type,
             source_name=self.path.name,
+            size=self.source_stat.st_size,
+            modified_at=datetime.fromtimestamp(self.source_stat.st_mtime, timezone.utc),
             **self.metadata.model_dump(),
         )
 
@@ -148,35 +152,39 @@ class FileBase:
             f"Supported encodings: utf-8, gb18030"
         )
 
-    def _generate_temp_file(self):
-        with open(
-            self.path, "r", encoding=self._encoding_detect(), errors="replace"
-        ) as fin:
-            if fin.readline().strip() == "---":
-                # Skip YAML front matter
-                while True:
-                    line = fin.readline()
-                    if not line or line.strip() == "---":
-                        break
-            else:
-                # Reset file pointer
-                fin.seek(0)
+    def _generate_temp_file(self, source: TextIO):
+        with open(self.temp_file, "w", encoding="utf-8") as fout:
+            while chunk := source.read(3 * 1024 * 1024):  # 3 MB
+                fout.write(chunk)
 
-            with open(self.temp_file, "w", encoding="utf-8") as fout:
-                while True:
-                    chunk = fin.read(3 * 1024 * 1024)  # 3 MB
-                    if not chunk:
-                        break
+    @staticmethod
+    def _read_front_matter(source: TextIO) -> dict:
+        if source.readline().strip() == "---":
+            yaml_lines = []
+            for line in source:
+                if line.strip() != "---":
+                    yaml_lines.append(line)
+                    continue
+                try:
+                    metadata = yaml.safe_load("".join(yaml_lines))
+                except yaml.YAMLError:
+                    # A leading divider can be followed by ordinary body text.
+                    break
+                if isinstance(metadata, dict):
+                    return metadata
+                break
+        source.seek(0)
+        return {}
 
-                    fout.write(chunk)
-
-    def _get_metadata(self) -> MetaData:
+    def _get_metadata(
+        self, source: TextIO, used_patterns: list[str] | None = None
+    ) -> MetaData:
         """
         Get metadata from YAML front matter for Markdown files,
         otherwise parse metadata from filename.
         """
-        fields = pa.match("file", self.path.stem)
-        stat = self.path.stat()
+        fields = pa.match_filename(self.path.stem, used_patterns)
+        stat = self.source_stat
 
         res = MetaData(
             title=fields.get("title", self.path.stem),
@@ -184,40 +192,26 @@ class FileBase:
             date=datetime.fromtimestamp(getattr(stat, "st_birthtime", stat.st_mtime)),
         )
 
-        # Markdown YAML front matter
-        if self.type == "md":
-            with open(self.path, "r", encoding=self.encoding) as f:
-                if f.readline().strip() == "---":
-                    yaml_lines = []
+        if self.type == "md" and (metadata := self._read_front_matter(source)):
+            res.title = metadata.get("title", res.title)
 
-                    for line in f:
-                        if line.strip() == "---":
-                            break
-                        yaml_lines.append(line)
+            def people(key, default=None):
+                value = metadata.get(key, default)
+                if isinstance(value, list):
+                    return "; ".join(str(item) for item in value if item is not None)
+                return value
 
-                    metadata = yaml.safe_load("".join(yaml_lines)) or {}
+            res.creator = people("creator", res.creator)
+            res.date = metadata.get("date", res.date)
 
-                    res.title = metadata.get("title", res.title)
+            res.contributor = people("contributor")
+            res.publisher = people("publisher")
+            res.language = metadata.get("language")
+            res.description = metadata.get("description")
+            res.source = metadata.get("source")
 
-                    def people(key, default=None):
-                        value = metadata.get(key, default)
-                        if isinstance(value, list):
-                            return "; ".join(
-                                str(item) for item in value if item is not None
-                            )
-                        return value
-
-                    res.creator = people("creator", res.creator)
-                    res.date = metadata.get("date", res.date)
-
-                    res.contributor = people("contributor")
-                    res.publisher = people("publisher")
-                    res.language = metadata.get("language")
-                    res.description = metadata.get("description")
-                    res.source = metadata.get("source")
-
-                    cover = metadata.get("cover") or metadata.get("cover-image")
-                    if cover:
-                        res.cover = self.get_image_path(str(cover))
+            cover = metadata.get("cover") or metadata.get("cover-image")
+            if cover:
+                res.cover = self.get_image_path(str(cover))
 
         return res

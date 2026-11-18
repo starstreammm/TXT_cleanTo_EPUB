@@ -32,24 +32,5 @@ export function useLocalStorage<T>(key: string, defaultValue: T, type: StorageTy
         }
     }, [key, state, storage]);
 
-    const remove = () => {
-        if (!isBrowser || !storage) return null;
-
-        storage.removeItem(key);
-        setState(defaultValue);
-    };
-
-    return [state, setState, remove] as const;
-}
-
-export function getLocalStorage(key: string, type: StorageType) {
-    if (typeof window === "undefined") return;
-    const storage = type === "local" ? localStorage : sessionStorage;
-    try {
-        const stored = (storage.getItem(key) as string | null)?.replaceAll('\"', '') ?? '';
-        return stored ? stored : new Error("Key not found in storage: " + key);
-    }
-    catch {
-        new Error("Failed to get localStorage item: " + key);
-    }
+    return [state, setState] as const;
 }

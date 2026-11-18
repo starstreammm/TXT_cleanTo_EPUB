@@ -26,7 +26,7 @@ export default function SetpAppBar({
     onBack: () => void;
 }) {
     const theme = useTheme();
-    const { mode, setMode } = useColorScheme();
+    const { setMode } = useColorScheme();
     const preferIsDark = useMediaQuery("(prefers-color-scheme: dark)");
     const [themeMode, setThemeMode] = useLocalStorage<
         "light" | "dark" | "system"
@@ -66,88 +66,72 @@ export default function SetpAppBar({
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    gap: { xm: 1, lg: 3 },
                 }}
             >
-                <Box
-                    sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 3,
-                    }}
+                <Avatar alt="TtE" src="/Icon-rounded.svg" variant="rounded" />
+                <Stepper activeStep={step}>
+                    {[
+                        "Choose Work Path",
+                        "Match Format and Edit",
+                        "Set Convert Options",
+                        "Complete",
+                    ].map((text, index) => (
+                        <Step key={index}>
+                            <StepLabel
+                                sx={{
+                                    "& .MuiStepIcon-root": {
+                                        fontSize: 33,
+                                        color: theme.vars?.palette.background
+                                            .paper,
+                                    },
+                                    "& .MuiStepIcon-root.Mui-active": {
+                                        fontSize: 33,
+                                        color: theme.vars?.palette.secondary
+                                            .main,
+                                    },
+                                    "& .MuiStepIcon-root.Mui-completed": {
+                                        fontSize: 33,
+                                        color: theme.vars?.palette.primary.dark,
+                                    },
+
+                                    "& .MuiStepIcon-text": {
+                                        fontSize: 13,
+                                        fill: theme.vars?.palette.text.primary,
+                                    },
+
+                                    "& .MuiStepLabel-label": {
+                                        fontSize: 18,
+                                        color: theme.vars?.palette.text.primary,
+                                    },
+                                }}
+                            >
+                                {text}
+                            </StepLabel>
+                        </Step>
+                    ))}
+                </Stepper>
+                <Button
+                    variant="contained"
+                    startIcon={<NavigateBeforeRoundedIcon />}
+                    onClick={onBack}
+                    color="secondary"
+                    disabled={step === 0}
                 >
-                    <Avatar
-                        alt="TtE"
-                        src="/Icon-rounded.svg"
-                        variant="rounded"
-                    />
-                    <Stepper activeStep={step}>
-                        {[
-                            "Choose Work Path",
-                            "Match Format and Edit",
-                            "Set Convert Options",
-                            "Complete",
-                        ].map((text, index) => (
-                            <Step key={index}>
-                                <StepLabel
-                                    sx={{
-                                        "& .MuiStepIcon-root": {
-                                            fontSize: 33,
-                                            color: theme.vars?.palette
-                                                .background.paper,
-                                        },
-                                        "& .MuiStepIcon-root.Mui-active": {
-                                            fontSize: 33,
-                                            color: theme.vars?.palette.secondary
-                                                .main,
-                                        },
-                                        "& .MuiStepIcon-root.Mui-completed": {
-                                            fontSize: 33,
-                                            color: theme.vars?.palette.primary
-                                                .dark,
-                                        },
-
-                                        "& .MuiStepIcon-text": {
-                                            fontSize: 13,
-                                            fill: theme.vars?.palette.text
-                                                .primary,
-                                        },
-
-                                        "& .MuiStepLabel-label": {
-                                            fontSize: 18,
-                                            color: theme.vars?.palette.text
-                                                .primary,
-                                        },
-                                    }}
-                                >
-                                    {text}
-                                </StepLabel>
-                            </Step>
-                        ))}
-                    </Stepper>
-                    <Button
-                        variant="contained"
-                        startIcon={<NavigateBeforeRoundedIcon />}
-                        onClick={onBack}
-                        color="secondary"
-                        disabled={step === 0}
-                    >
-                        Back
-                    </Button>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Chip
-                        label={VERSION}
-                        variant="outlined"
-                        size="small"
-                        sx={{
-                            borderColor: "secondary.main",
-                        }}
-                    />
-                    <IconButton onClick={() => changeThemeMode()}>
-                        <ContrastRoundedIcon />
-                    </IconButton>
-                </Box>
+                    Back
+                </Button>
+                <Chip
+                    label={VERSION}
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                        borderColor: "secondary.main",
+                        ml: "auto",
+                    }}
+                />
+                <IconButton onClick={() => changeThemeMode()}>
+                    <ContrastRoundedIcon />
+                </IconButton>
             </Box>
         </AppBar>
     );

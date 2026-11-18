@@ -142,6 +142,7 @@ export default function PathSelector({
                 <DialogActions sx={{ pb: 3, pr: 3, gap: 1 }}>
                     <Button
                         onClick={() => setNewFolder(null)}
+                        color="error"
                         variant="outlined"
                     >
                         Cancel

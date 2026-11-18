@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from models import ApiExecuteResponse, TranConfig
-from core.queue import FilesQueue
+from utils.queue import FilesQueue
 
 task_router = APIRouter(prefix="/task", tags=["Task"])
 

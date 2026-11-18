@@ -18,6 +18,7 @@ import dayjs from 'dayjs';
 
 import { useState } from "react";
 import { Language, type MetaData } from "~/hooks/models";
+import { pushError } from "~/components/error_popout";
 
 
 
@@ -26,6 +27,14 @@ export default function MetaDataDialog({ defaultValue, onClose }: {
     onClose: (newMetaData: MetaData | null) => void;
 }) {
     const [metaData, setMetaData] = useState<MetaData>(defaultValue);
+
+    function save() {
+        if (!metaData.title.trim()) {
+            pushError("Title cannot be empty", "Save metadata");
+            return;
+        }
+        onClose(metaData);
+    }
 
     return (
         <Dialog
@@ -37,7 +46,7 @@ export default function MetaDataDialog({ defaultValue, onClose }: {
                 if (e.key === "Enter") {
                     e.stopPropagation();
                     e.preventDefault();
-                    onClose(metaData);
+                    save();
                 }
                 else if (e.key === "Escape") {
                     onClose(null);
@@ -51,13 +60,7 @@ export default function MetaDataDialog({ defaultValue, onClose }: {
                         title="Title"
                         value={metaData.title}
                         onChange={(newValue) => setMetaData({ ...metaData, title: newValue })}
-                        props={{
-                            required: true,
-                            error: metaData.title.trim() === "",
-                            helperText: metaData.title.trim() === ""
-                                ? "Title cannot be empty"
-                                : "",
-                        }}
+                        props={{ required: true }}
                     />
                     <MetaDataField
                         title="Creator"
@@ -136,7 +139,7 @@ export default function MetaDataDialog({ defaultValue, onClose }: {
                         Cancel
                     </Button>
                     <Button
-                        onClick={() => onClose(metaData)}
+                        onClick={save}
                         color="primary"
                         variant="contained"
                     >

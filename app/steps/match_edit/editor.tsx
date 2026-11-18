@@ -3,7 +3,6 @@ import {
     Divider,
     Typography,
     Skeleton,
-    Alert,
     Button,
     useMediaQuery,
 } from "@mui/material";
@@ -60,7 +59,7 @@ export default function TextEditor({
 
     // state
     const [loading, setLoading] = useState(true);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [sourceEditor, setSourceEditor] =
         useState<editor.IStandaloneCodeEditor | null>(null);
     const fetching = useRef(false);
@@ -77,7 +76,7 @@ export default function TextEditor({
     const [saveDialog, setSaveDialog] = useState(false);
     const resolveUnsave = useRef<((value: boolean) => void) | null>(null);
     const [metaDataDialog, setMetaDataDialog] = useState(false);
-    const { api: imagePreviewApi, component: imageComponent } =
+    const { open: openImagePreview, component: imageComponent } =
         useImagePreviewPopup(file?.uid || "");
 
     // data
@@ -104,7 +103,7 @@ export default function TextEditor({
         const request = ++contentRequestRef.current;
         setSourceEditor(null);
         setLoading(true);
-        setLoadError(null);
+        setLoadFailed(false);
         fetching.current = true;
         try {
             let chunk = "";
@@ -118,11 +117,8 @@ export default function TextEditor({
             setUnsave(false);
         } catch (error) {
             if (request === contentRequestRef.current) {
-                setLoadError(
-                    error instanceof Error
-                        ? error.message
-                        : "Unable to open this file.",
-                );
+                pushError(error, "Open file");
+                setLoadFailed(true);
             }
         } finally {
             if (request === contentRequestRef.current) {
@@ -174,7 +170,7 @@ export default function TextEditor({
     }, [fontSize, wordWrap, showFileList, diff, showReplacements]);
 
     useEffect(() => {
-        if (!file || !diff || loading || loadError || !sourceEditor) return;
+        if (!file || !diff || loading || loadFailed || !sourceEditor) return;
         let controller: AbortController | undefined;
         let timer: ReturnType<typeof setTimeout>;
         const refreshPreview = () => {
@@ -187,12 +183,17 @@ export default function TextEditor({
                     setFormated("");
                     return;
                 }
-                const visibleContent = ranges
-                    .map((range) => model.getValueInRange(range))
-                    .join("\n");
+                const first = ranges[0].startLineNumber;
+                const last = ranges[ranges.length - 1].endLineNumber;
+                const text = model.getValueInRange({
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: last,
+                    endColumn: model.getLineMaxColumn(last),
+                });
                 const request = new AbortController();
                 controller = request;
-                getFormated(visibleContent, file.type, request.signal)
+                getFormated(text, file.type, file.uid, first, request.signal)
                     .then((result) => {
                         if (!request.signal.aborted) setFormated(result);
                     })
@@ -220,7 +221,7 @@ export default function TextEditor({
         diff,
         previewVersion,
         loading,
-        loadError,
+        loadFailed,
     ]);
 
     useEffect(() => () => disposeImagePreviewRef.current?.(), []);
@@ -305,16 +306,11 @@ export default function TextEditor({
             </Box>
         );
 
-    if (loadError) {
+    if (loadFailed) {
         return (
-            <Alert
-                severity="error"
-                action={
-                    <Button onClick={() => void fetchContent()}>Retry</Button>
-                }
-            >
-                {loadError}
-            </Alert>
+            <Box sx={{ display: "grid", placeItems: "center", height: "100%" }}>
+                <Button onClick={() => void fetchContent()}>Retry opening file</Button>
+            </Box>
         );
     }
 
@@ -362,17 +358,17 @@ export default function TextEditor({
                         onClose={(newMetaData) => {
                             setMetaDataDialog(false);
                             if (newMetaData) {
-                                updateMetaData(file.uid, newMetaData).then(() =>
-                                    setFile((prev) => ({
-                                        ...prev,
-                                        ...newMetaData,
-                                    })),
-                                );
+                                updateMetaData(file.uid, newMetaData)
+                                    .then(() => setFile((prev) => ({ ...prev, ...newMetaData })))
+                                    .catch(() => {
+                                        // updateMetaData reports the error.
+                                    });
                             }
                         }}
                     />
                 )}
                 <EditorToolBar
+                    uid={file.uid}
                     hasFileList={hasFileList}
                     showReplacements={showReplacements}
                     onToggleReplacements={() =>
@@ -483,7 +479,7 @@ export default function TextEditor({
                                     setupImagePreview(
                                         editor,
                                         monaco,
-                                        () => imagePreviewApi,
+                                        openImagePreview,
                                     );
                             }}
                         />

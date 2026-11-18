@@ -1,47 +1,43 @@
 import type { FileInfo, MetaData } from "~/hooks/models";
 import { api } from "~/hooks/api";
-import { pushError, pushMsg } from "~/components/error_popout";
+import { pushError } from "~/components/error_popout";
 
 export async function* getContent(uid: string): AsyncGenerator<string> {
-    try {
-        const decoder = new TextDecoder();
-        const reader = (
-            await api.get("/api/file/open", {
-                searchParams: { uid },
-                timeout: false,
-            })
-        ).body?.getReader();
-        if (reader === undefined) {
-            pushMsg("Response body is empty", "error");
-            throw new Error("Response body is empty");
-        }
-
-        while (true) {
-            const { value, done } = await reader.read();
-
-            if (done) break;
-
-            yield decoder.decode(value, { stream: true });
-        }
-
-        const remaining = decoder.decode();
-        if (remaining) yield remaining;
-    } catch (error) {
-        pushError(error, "Get account posts");
-        throw error;
+    const decoder = new TextDecoder();
+    const reader = (
+        await api.get("/api/file/open", {
+            searchParams: { uid },
+            timeout: false,
+        })
+    ).body?.getReader();
+    if (reader === undefined) {
+        throw new Error("Response body is empty");
     }
+
+    while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) break;
+
+        yield decoder.decode(value, { stream: true });
+    }
+
+    const remaining = decoder.decode();
+    if (remaining) yield remaining;
 }
 
 export async function getFormated(
     text: string | undefined,
     type: "txt" | "md",
+    uid: string,
+    startLine: number,
     signal?: AbortSignal,
 ): Promise<string> {
     try {
         const res = await api
             .post("/api/file/preview", {
                 json: { text },
-                searchParams: { type },
+                searchParams: { type, uid, start_line: startLine },
                 signal,
             })
             .json<string>();

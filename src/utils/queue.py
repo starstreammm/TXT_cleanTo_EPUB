@@ -1,4 +1,5 @@
 import asyncio
+from io import StringIO
 from pathlib import Path
 from pypinyin import lazy_pinyin
 from natsort import natsorted
@@ -6,9 +7,10 @@ from natsort import natsorted
 from fastapi import HTTPException
 
 from models import MetaData, TranConfig, TEXT_TYPE, TEXT_SUFFIXES
-from core.file import FileBase
-from core.parse import ParseBase as pa
-from core.worker import TranWorker
+from utils import database
+from utils.file import FileBase
+from utils.parse import ParseBase as pa
+from utils.worker import TranWorker
 
 
 class FilesQueue:
@@ -40,7 +42,10 @@ class FilesQueue:
         else:
             raise HTTPException(400, "Choose a directory, .txt file, or .md file.")
 
-        files = [FileBase(candidate) for candidate in candidates]
+        used_patterns = []
+        files = [FileBase(candidate, used_patterns) for candidate in candidates]
+        with database.connect() as connection:
+            database.record_filename_history(connection, used_patterns)
         cls.work_dir = path if path.is_dir() else path.parent
         cls.files = natsorted(files, key=lambda file: lazy_pinyin(file.path.name))
         cls.selected_uids = {file.uid for file in cls.files}
@@ -106,11 +111,7 @@ class FilesQueue:
                 # Conversion succeeded; only image cleanup needs another attempt.
                 worker.progress.error = None
                 continue
-            retry = TranWorker(worker.file, worker.config)
-            retry.image_paths = worker.image_paths.copy()
-            retry.image_counts = worker.image_counts.copy()
-            retry.cover_path = worker.cover_path
-            cls.workers[index] = retry
+            cls.workers[index] = TranWorker(worker.file, worker.config)
         cls.completion_task = asyncio.create_task(cls._finish_batch(cls.workers))
 
     @staticmethod
@@ -119,29 +120,43 @@ class FilesQueue:
         await asyncio.gather(*(worker.worker for worker in workers))
         if any(worker.progress.error or not worker.done for worker in workers):
             return
-        destinations = {
-            destination.resolve()
-            for worker in workers
-            for destination in worker.image_paths.values()
-        }
         for worker in workers:
-            if not worker.config.move_images:
-                continue
             try:
-                for _, source in worker.image_paths:
-                    if source not in destinations:
-                        source.unlink(missing_ok=True)
+                for source in worker.images_delete:
+                    if not source.exists() or any(
+                        source.is_relative_to(other.output_dir.resolve())
+                        for other in workers
+                    ):
+                        continue
+                    digest = worker.image_digest(source)
+                    destination = worker.copied_image(digest)
+                    if (
+                        destination is None
+                        or destination == source
+                        or worker.digest(destination) != digest
+                        or worker.digest(source) != digest
+                    ):
+                        raise OSError(f"Image changed since copying: {source}")
+                    source.unlink()
             except OSError as error:
                 worker.progress.error = f"Could not remove source image: {error}"
 
     @staticmethod
-    def preview(text: str, type: TEXT_TYPE) -> str:
-        lines = text.splitlines()
+    def preview(
+        text: str, type: TEXT_TYPE, uid: str | None = None, start_line: int = 1
+    ) -> str:
+        settings = {}
+        if uid:
+            source = str(FilesQueue.get_file_instance(uid).path.resolve())
+            settings = database.get_heading_settings(source)
+        parser = pa(settings)
+        lines = StringIO(text, newline=None)
         result = []
 
         prev_blank = True
-        for line in lines:
-            sline, prev_blank = pa.match_line(line, prev_blank, type)
-            result.append(sline)
+        for number, line in enumerate(lines, 1):
+            sline, prev_blank = parser.match_line(line, prev_blank, type)
+            if number >= start_line:
+                result.append(sline)
 
         return "".join(result)

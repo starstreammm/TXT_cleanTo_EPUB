@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { matchPath, Outlet, useLocation, useNavigate } from "react-router";
 
 import SetpAppBar from "./appbar";
-const stepPaths = ["/", "/match-edit", "/convert-options", "/results"];
+const stepPaths = ["/path_select", "/match-edit", "/convert-options", "/results"];
 
 export default function StepLayout() {
     const { pathname } = useLocation();

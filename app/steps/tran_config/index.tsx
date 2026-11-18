@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import {
     Box,
     Typography,
@@ -17,7 +18,8 @@ import { api } from "~/hooks/api";
 import { useLocalStorage } from "~/hooks/storage";
 import PathSelector from "~/components/pathselector";
 
-export default function TranConfig({ onNext }: { onNext: () => void }) {
+export default function TranConfig() {
+    const navigate = useNavigate();
     const [starting, setStarting] = useState(false);
     const queryClient = useQueryClient();
     const [config, setConfig] = useLocalStorage<TranConfig>(
@@ -138,7 +140,7 @@ export default function TranConfig({ onNext }: { onNext: () => void }) {
                             });
                             queryClient.setQueryData(["progress"], []);
                             queryClient.setQueryData(["done"], false);
-                            onNext();
+                            void navigate("/results");
                         } catch (error) {
                             pushError(error, "Start transformation");
                         } finally {

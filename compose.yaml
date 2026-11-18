@@ -1,0 +1,24 @@
+volumes:
+    tran:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: /path/to/data
+    cache:
+        # driver: local
+        # driver_opts:
+        #     type: none
+        #     o: bind
+        #     device: /path/to/cache
+
+services:
+    txt-cleanto-epub:
+        image: starstreammm/txt_cleanto_epub:latest # ghcr.io/starstreammm/txt_cleanto_epub:latest
+
+        ports:
+            - "8887:80"
+
+        volumes:
+            - tran:/tran
+            - cache:/app/cache

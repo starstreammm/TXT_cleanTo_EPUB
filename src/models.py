@@ -4,16 +4,14 @@ from typing import Literal, Optional
 from datetime import datetime, timezone
 
 # const
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 TEXT_SUFFIXES = [".txt", ".md"]
 TEXT_TYPE = Literal["txt", "md"]
-PIC_SUFFIXES = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"]
-SUPPORTED_SUFFIXES = TEXT_SUFFIXES + PIC_SUFFIXES
 
-DATA_PATH = Path(__file__).resolve().parent.parent / "data"
+DATA_PATH = Path(__file__).resolve().parent.parent / "cache"
 CSS_PATH = Path(__file__).resolve().parent.parent / "public" / "epub.css"
 
-PatternType = Literal["file", "chapter", "adv", "volume"]
+HeadingType = Literal["volume", "chapter", "section"]
 
 
 # Models
@@ -30,6 +28,7 @@ class ApiExecuteResponse(BaseModel):
     filename: str
     progress: int = 0
     error: str | None = None
+    warning: str | None = None
 
 
 class MetaData(BaseModel):
@@ -61,6 +60,8 @@ class ApiUpdateFileInfo(MetaData):
 class FileInfo(ApiUpdateFileInfo):
     type: TEXT_TYPE
     source_name: str
+    size: int
+    modified_at: datetime
 
 
 class PathEntry(BaseModel):
@@ -70,5 +71,29 @@ class PathEntry(BaseModel):
 
 class Pattern(BaseModel):
     enable: bool = True
-    alias: str
+    alias: str = ""
     pattern: str
+    replacement: str | None = None
+
+
+class HeadingSettings(BaseModel):
+    patterns: list[Pattern]
+    restart: bool = True
+
+
+HeadingConfiguration = dict[HeadingType, HeadingSettings]
+
+
+class HeadingHistoryEntry(BaseModel):
+    source_name: str
+    last_used: int
+    settings: HeadingConfiguration
+
+
+class Replacement(BaseModel):
+    id: str = Field(min_length=1)
+    original: str = Field(min_length=1)
+    replacement: str
+    matchCase: bool = True
+    wholeWord: bool = False
+    isRegex: bool = False

@@ -1,15 +1,4 @@
-export const VERSION = "v1.1.0";
-export const TEXT_SUFFIXES = [".txt", ".md"] as const;
-export const PIC_SUFFIXES = [
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".svg",
-    ".webp",
-] as const;
-export const SUPPORTED_SUFFIXES = [...TEXT_SUFFIXES, ...PIC_SUFFIXES] as const;
-export type PatternType = "file" | "chapter" | "adv" | "volume";
+export const VERSION = "v1.2.0";
 export const Language: Record<string, string> = {
     zh: "中文",
     en: "English",
@@ -48,6 +37,7 @@ export interface ApiExecuteResponse {
     filename: string;
     progress: number;
     error: string | null;
+    warning?: string | null;
 }
 
 export interface MetaData {
@@ -70,6 +60,8 @@ export interface ApiUpdateFileInfo extends MetaData {
 export interface FileInfo extends ApiUpdateFileInfo {
     type: "txt" | "md";
     source_name: string;
+    size: number;
+    modified_at: string;
 }
 
 export interface PathEntry {
@@ -77,16 +69,9 @@ export interface PathEntry {
     is_file: boolean;
 }
 
-export interface TextLineChange {
-    /** Begin at 1. */
-    line_number: number;
-
-    /** Without \n at the end. */
-    new_content: string;
-}
-
 export interface Pattern {
     enable: boolean;
     alias: string;
     pattern: string;
+    replacement?: string | null;
 }

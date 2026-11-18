@@ -14,7 +14,7 @@ export default function AppleSuccess() {
         <div
             className="success-overlay"
             onClick={() => {
-                if (animate) void navigate("/", { replace: true });
+                if (animate) void navigate("/path_select", { replace: true });
             }}
         >
             <div className={`success-card ${animate ? "show" : ""}`}>

@@ -1,18 +1,14 @@
-import { Button, IconButton } from "@mui/material";
+import { IconButton } from "@mui/material";
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { enqueueSnackbar, closeSnackbar, type VariantType } from "notistack";
 import { HTTPError, TimeoutError } from "ky";
 
-
-export let openMsg = true;
 
 export function pushMsg(
     text: string,
     level: VariantType = "info",
     timeout: number = 6000
 ) {
-    if (!openMsg) return;
-
     enqueueSnackbar(text, {
         variant: level,
         action: (snackbarId) => (
@@ -33,8 +29,6 @@ export function pushError(
     error: unknown,
     prefix = "",
 ) {
-    if (!openMsg) return;
-
     let text = "";
 
     try {
@@ -55,6 +49,7 @@ export function pushError(
 
             if (
                 typeof data === "object" &&
+                data !== null &&
                 "detail" in data &&
                 typeof data.detail === "string"
             ) {
@@ -121,34 +116,4 @@ export function pushError(
         : text;
 
     pushMsg(finalText, "error");
-}
-
-export function clearAllMsg() {
-    closeSnackbar();
-}
-
-export function pushTaskSuccess(text: string) {
-    if (!openMsg) return;
-
-    enqueueSnackbar(text, {
-        variant: "info",
-        action: (snackbarId) => (
-            <>
-                <Button onClick={() => {
-                    closeSnackbar(snackbarId);
-                    window.location.href = "/tasks";
-                }}>
-                    View
-                </Button>
-                <IconButton
-                    onClick={() => closeSnackbar(snackbarId)}
-                    sx={{ borderRadius: 1, p: 0.5, ml: 1 }}
-                >
-                    <CloseRoundedIcon sx={{ color: "white" }} />
-                </IconButton>
-            </>
-        ),
-        autoHideDuration: 6000,
-        preventDuplicate: true,
-    });
 }

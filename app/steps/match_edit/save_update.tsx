@@ -1,10 +1,10 @@
 import {
-    Box,
     Button,
     Dialog,
     DialogContent,
-    Alert,
-    AlertTitle,
+    DialogTitle,
+    DialogActions,
+    DialogContentText,
     CircularProgress,
     Typography,
 } from "@mui/material";
@@ -38,20 +38,20 @@ export function SavingDialog() {
 export function UnSaveDialog({ onClose }: { onClose: (saved: boolean) => void }) {
     return (
         <Dialog open onClose={() => onClose(false)}>
-            <DialogContent sx={{ p: 0 }}>
-                <Alert severity="warning" sx={{ borderRadius: 0, p: 2 }}>
-                    <AlertTitle>Unsaved Changes</AlertTitle>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogContent>
+                <DialogContentText>
                     You have unsaved changes. Do you want to save them before closing?
-                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 3, px: 1, mt: 3 }}>
-                        <Button onClick={() => onClose(false)} color="error" variant="outlined">
-                            Discard
-                        </Button>
-                        <Button onClick={() => onClose(true)} color="primary" variant="contained">
-                            Save
-                        </Button>
-                    </Box>
-                </Alert>
+                </DialogContentText>
             </DialogContent>
+            <DialogActions>
+                <Button onClick={() => onClose(false)} color="error" variant="outlined">
+                    Discard
+                </Button>
+                <Button onClick={() => onClose(true)} variant="contained">
+                    Save
+                </Button>
+            </DialogActions>
         </Dialog>
     );
 }

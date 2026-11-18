@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Box,
     Button,
@@ -14,7 +15,8 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DoneAllRoundedIcon from "@mui/icons-material/DoneAllRounded";
 import FindReplaceRoundedIcon from "@mui/icons-material/FindReplaceRounded";
-import { useLocalStorage } from "~/hooks/storage";
+import { api } from "~/hooks/api";
+import { pushError } from "~/components/error_popout";
 
 interface MatchingOptions {
     matchCase: boolean;
@@ -40,6 +42,28 @@ export interface Replacement extends Partial<MatchingOptions> {
     replacement: string;
 }
 
+const replacementsKey = ["saved-replacements"];
+const replacementsUrl = "/api/replacement";
+
+async function loadReplacements(): Promise<Replacement[]> {
+    const legacyKey = "editor_replacements_v1";
+    try {
+        const legacy = localStorage.getItem(legacyKey);
+        if (legacy !== null) {
+            await api.post(`${replacementsUrl}/import`, {
+                json: JSON.parse(legacy),
+            });
+            localStorage.removeItem(legacyKey);
+        }
+    } catch (error) {
+        pushError(
+            error,
+            "Could not migrate browser replacements; browser data retained",
+        );
+    }
+    return api.get(replacementsUrl).json<Replacement[]>();
+}
+
 export default function Replacements({
     onApply,
     onClose,
@@ -47,27 +71,41 @@ export default function Replacements({
     onApply: (pair: Replacement, action: "all" | "show") => Promise<void>;
     onClose: () => void;
 }) {
-    const [pairs, setPairs] = useLocalStorage<Replacement[]>(
-        "editor_replacements_v1",
-        [],
-    );
+    const queryClient = useQueryClient();
+    const query = useQuery({
+        queryKey: replacementsKey,
+        meta: { errorContext: "Load saved replacements" },
+        queryFn: loadReplacements,
+        retry: false,
+    });
+    const pairs = query.data ?? [];
+    const mutation = useMutation({
+        mutationFn: async (action: Replacement | string) => {
+            if (typeof action === "string") {
+                return api
+                    .delete(`${replacementsUrl}/${encodeURIComponent(action)}`)
+                    .json<Replacement[]>();
+            }
+            if (action.isRegex) new RegExp(action.original, "mu");
+            return api
+                .post(replacementsUrl, { json: action })
+                .json<Replacement[]>();
+        },
+        onSuccess: (saved) => queryClient.setQueryData(replacementsKey, saved),
+        onError: (error) => pushError(error, "Save replacements"),
+        onSettled: () =>
+            queryClient.invalidateQueries({ queryKey: replacementsKey }),
+    });
+    const busy =
+        query.isPending ||
+        query.isFetching ||
+        query.isError ||
+        mutation.isPending;
     const [editing, setEditing] = useState<string | null>(null);
     const [original, setOriginal] = useState("");
     const [replacement, setReplacement] = useState("");
     const [options, setOptions] = useState(defaultOptions);
     const [applying, setApplying] = useState(false);
-    let regexError = "";
-    if (options.isRegex && original) {
-        try {
-            new RegExp(original, "mu");
-        } catch (error) {
-            regexError =
-                error instanceof Error
-                    ? error.message
-                    : "Invalid regular expression";
-        }
-    }
-
     const clear = () => {
         setEditing(null);
         setOriginal("");
@@ -82,12 +120,7 @@ export default function Replacements({
             replacement,
             ...options,
         };
-        setPairs((previous) =>
-            editing
-                ? previous.map((item) => (item.id === editing ? pair : item))
-                : [...previous, pair],
-        );
-        clear();
+        mutation.mutate(pair, { onSuccess: clear });
     };
 
     const apply = async (pair: Replacement, action: "all" | "show") => {
@@ -131,23 +164,23 @@ export default function Replacements({
                     <CloseRoundedIcon />
                 </IconButton>
             </Box>
-            <Typography variant="body2" color="text.secondary">
-                Replace all matches or open the pair in Monaco’s replace panel.
-                Replacements can be undone before saving.
-            </Typography>
             <TextField
                 label="Original text"
-                error={!!regexError}
-                helperText={regexError}
+                disabled={mutation.isPending}
                 value={original}
                 onChange={(event) => setOriginal(event.target.value)}
                 multiline
                 minRows={2}
                 size="small"
             />
-            <MatchingOptionButtons value={options} onChange={setOptions} />
+            <MatchingOptionButtons
+                value={options}
+                onChange={setOptions}
+                disabled={mutation.isPending}
+            />
             <TextField
                 label="Replacement text"
+                disabled={mutation.isPending}
                 value={replacement}
                 onChange={(event) => setReplacement(event.target.value)}
                 multiline
@@ -162,15 +195,19 @@ export default function Replacements({
             <Box sx={{ display: "flex", gap: 1 }}>
                 <Button
                     variant="outlined"
-                    disabled={!original || !!regexError}
+                    disabled={busy || !original}
                     onClick={save}
                 >
                     {editing ? "Save Pair" : "Add Pair"}
                 </Button>
-                {editing && <Button onClick={clear}>Cancel</Button>}
+                {editing && (
+                    <Button disabled={mutation.isPending} onClick={clear}>
+                        Cancel
+                    </Button>
+                )}
             </Box>
             <Divider />
-            {!pairs.length && (
+            {query.isSuccess && !pairs.length && (
                 <Typography variant="body2" color="text.secondary">
                     No saved replacements yet.
                 </Typography>
@@ -207,14 +244,9 @@ export default function Replacements({
                     </Typography>
                     <MatchingOptionButtons
                         value={pair}
+                        disabled={busy}
                         onChange={(newOptions) =>
-                            setPairs((previous) =>
-                                previous.map((item) =>
-                                    item.id === pair.id
-                                        ? { ...item, ...newOptions }
-                                        : item,
-                                ),
-                            )
+                            mutation.mutate({ ...pair, ...newOptions })
                         }
                     />
                     <Box
@@ -229,7 +261,7 @@ export default function Replacements({
                                 <IconButton
                                     size="small"
                                     aria-label="Replace all"
-                                    disabled={applying}
+                                    disabled={applying || busy}
                                     onClick={() => void apply(pair, "all")}
                                 >
                                     <DoneAllRoundedIcon color="primary" />
@@ -241,7 +273,7 @@ export default function Replacements({
                                 <IconButton
                                     size="small"
                                     aria-label="Show replace in Monaco editor"
-                                    disabled={applying}
+                                    disabled={applying || busy}
                                     onClick={() => void apply(pair, "show")}
                                 >
                                     <FindReplaceRoundedIcon />
@@ -252,6 +284,7 @@ export default function Replacements({
                             <IconButton
                                 size="small"
                                 aria-label="Edit replacement"
+                                disabled={busy}
                                 onClick={() => {
                                     setEditing(pair.id);
                                     setOriginal(pair.original);
@@ -270,16 +303,17 @@ export default function Replacements({
                             <IconButton
                                 size="small"
                                 aria-label="Delete replacement"
+                                color="error"
+                                disabled={busy}
                                 onClick={() => {
-                                    setPairs((previous) =>
-                                        previous.filter(
-                                            (item) => item.id !== pair.id,
-                                        ),
-                                    );
-                                    if (editing === pair.id) clear();
+                                    mutation.mutate(pair.id, {
+                                        onSuccess: () => {
+                                            if (editing === pair.id) clear();
+                                        },
+                                    });
                                 }}
                             >
-                                <DeleteOutlineRoundedIcon color="error" />
+                                <DeleteOutlineRoundedIcon />
                             </IconButton>
                         </Tooltip>
                     </Box>
@@ -292,9 +326,11 @@ export default function Replacements({
 function MatchingOptionButtons({
     value,
     onChange,
+    disabled = false,
 }: {
     value: Partial<MatchingOptions>;
     onChange: (options: MatchingOptions) => void;
+    disabled?: boolean;
 }) {
     const options = {
         matchCase: value.matchCase ?? true,
@@ -310,6 +346,7 @@ function MatchingOptionButtons({
                 >
                     <IconButton
                         size="small"
+                        disabled={disabled}
                         aria-label={label}
                         aria-pressed={options[key]}
                         color={options[key] ? "primary" : "default"}

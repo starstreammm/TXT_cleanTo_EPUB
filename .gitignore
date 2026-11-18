@@ -1,10 +1,11 @@
 .DS_Store
 .env
-/compose.yaml
+*.overwrite.*
 /node_modules/
 test/
 .temp/
 data/
+cache/
 .react-router/
 
 # Byte-compiled / optimized / DLL files

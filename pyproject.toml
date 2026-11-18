@@ -1,6 +1,6 @@
 [project]
 name = "txt-cleanto-epub"
-version = "1.0.0"
+version = "1.2.0"
 description = "Clean & format txt and transform to epub, with Web UI."
 readme = "README.md"
 authors = [
